@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Sort and filter menu -->
+    <string name="sort_and_filter">Sort and filter</string>
+    <string name="filter_header">Show</string>
+    <string name="filter_all_music">All Music</string>
+    <string name="filter_downloaded">Downloaded</string>
+    <string name="sort_header">Sort by</string>
+
+    <string name="sort_library_order">Library Order</string>
+    <string name="sort_artist">Artist</string>
+    <string name="sort_album">Album</string>
+    <string name="sort_title">Title</string>
+    <string name="sort_name">Name</string>
+    <string name="sort_date_added">Date Added</string>
+    <string name="sort_release_year">Release Year</string>
+    <string name="sort_year">Year</string>
+    <string name="sort_duration">Duration</string>
+    <string name="sort_plays">Plays</string>
+    <string name="sort_last_played">Last Played</string>
+
+    <string name="sort_a_to_z">A–Z</string>
+    <string name="sort_z_to_a">Z–A</string>
+    <string name="sort_oldest_first">Oldest First</string>
+    <string name="sort_newest_first">Newest First</string>
+    <string name="sort_shortest_first">Shortest First</string>
+    <string name="sort_longest_first">Longest First</string>
+    <string name="sort_least_played">Least Played</string>
+    <string name="sort_most_played">Most Played</string>
+    <string name="sort_longest_ago">Longest Ago</string>
+    <string name="sort_most_recent">Most Recent</string>
+
+    <!-- Albums and Songs -->
+    <string name="no_downloaded_albums">No Downloaded Albums</string>
+    <string name="no_songs">No Songs</string>
+    <string name="no_downloaded_songs">No Downloaded Songs</string>
+
+    <!-- Search -->
+    <string name="search_placeholder">Artists, albums, or songs</string>
+    <string name="search_clear_query">Clear search</string>
+    <string name="search_prompt_title">Search</string>
+    <string name="search_prompt_message">Search for artists, albums, or songs.</string>
+    <string name="search_no_results">No Results for “%1$s”</string>
+    <string name="search_no_results_message">Check the spelling or try a new search.</string>
+    <string name="search_recent">Recent</string>
+    <string name="search_clear_recent">Clear</string>
+    <string name="search_remove_recent">Remove from recent searches</string>
+</resources>
