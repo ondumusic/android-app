@@ -104,12 +104,12 @@ fun AlbumActionSheet(album: Album, onDismiss: () -> Unit) {
 }
 
 @Composable
-fun ArtistActionSheet(artist: Artist, onDismiss: () -> Unit) {
+fun ArtistActionSheet(artist: Artist, onDismiss: () -> Unit, extra: List<List<Action>> = emptyList()) {
     val library = LocalContainer.current.library
     ActionSheet(
         title = artist.name,
         subtitle = null,
-        groups = queueActions({ library.tracksForAlbumArtistInOrder(artist.id) }, shuffle = true),
+        groups = queueActions({ library.tracksForAlbumArtistInOrder(artist.id) }, shuffle = true) + extra,
         onDismiss = onDismiss,
         leading = { ArtistArtwork(artist, 48.dp) },
     )

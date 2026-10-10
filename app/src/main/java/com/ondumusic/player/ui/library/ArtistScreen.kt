@@ -17,7 +17,12 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.Album
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Shuffle
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -54,6 +59,7 @@ fun ArtistScreen(artistId: UUID) {
     val artist by remember(artistId) { library.observeArtist(artistId) }.collectAsStateWithLifecycle(null)
     val albums by remember(artistId) { library.observeAlbumsForArtist(artistId) }.collectAsStateWithLifecycle(null)
     var showActions by rememberSaveable { mutableStateOf(false) }
+    val artwork = rememberArtworkChanger(artistId)
 
     fun playAll(shuffle: Boolean) = container.scope.launch {
         val online = container.network.isOnline.value
@@ -80,8 +86,18 @@ fun ArtistScreen(artistId: UUID) {
         ) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 ArtistHeader(
-                    hasArtwork = artist?.artwork?.isNotEmpty() == true,
-                    artwork = { artist?.let { ArtistArtwork(it, 140.dp) } },
+                    // Only when there is artwork, or one on its way: adding one lives in the menu.
+                    hasArtwork = artist?.artwork?.isNotEmpty() == true || artwork.isUpdating,
+                    artwork = {
+                        Box(contentAlignment = Alignment.Center) {
+                            artist?.let { ArtistArtwork(it, 140.dp) }
+                            if (artwork.isUpdating) {
+                                Box(Modifier.size(140.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.45f)), contentAlignment = Alignment.Center) {
+                                    CircularProgressIndicator(Modifier.size(28.dp), color = Color.White, strokeWidth = 2.dp)
+                                }
+                            }
+                        }
+                    },
                     onPlay = { playAll(shuffle = false) },
                     onShuffle = { playAll(shuffle = true) },
                 )
@@ -94,7 +110,10 @@ fun ArtistScreen(artistId: UUID) {
             }
         }
     }
-    artist?.let { if (showActions) ArtistActionSheet(it, onDismiss = { showActions = false }) }
+    artist?.let {
+        if (showActions) ArtistActionSheet(it, onDismiss = { showActions = false }, extra = listOf(artwork.actions(hasArtwork = it.artwork.isNotEmpty())))
+    }
+    artwork.FailureDialog()
 }
 
 @Composable
