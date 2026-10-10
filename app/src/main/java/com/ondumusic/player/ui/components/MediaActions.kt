@@ -29,6 +29,7 @@ import com.ondumusic.player.ui.downloads.artistDownloadActions
 import com.ondumusic.player.ui.downloads.trackDownloadActions
 import com.ondumusic.player.ui.navigation.LocalNavigator
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 /**
  * Queue actions shared by everything that resolves to a list of tracks. [tracks] is called
@@ -49,6 +50,10 @@ private fun queueActions(tracks: suspend () -> List<Track>, artworkUrl: String? 
         val online = container.network.isOnline.value
         tracks().filter { online || it.isDownloaded }.takeIf { it.isNotEmpty() }?.let(block)
     }
+    // A playlist holds the music whether or not it can play right now.
+    fun withTrackIds(block: suspend (List<UUID>) -> Unit) = container.scope.launch {
+        tracks().map { it.id }.takeIf { it.isNotEmpty() }?.let { block(it) }
+    }
 
     val play = Action(stringResource(R.string.action_play), Icons.Outlined.PlayArrow) {
         withTracks { player.requestPlay { player.playNow(it, artworkUrl = artworkUrl) } }
@@ -64,11 +69,11 @@ private fun queueActions(tracks: suspend () -> List<Track>, artworkUrl: String? 
     }
     val addToLast = lastUsed?.takeIf { !it.isFolder }?.let { playlist ->
         Action(stringResource(R.string.action_add_to_named, playlist.name), Icons.Outlined.AddCircleOutline) {
-            withTracks { list -> container.scope.launch { container.playlists.addTracks(list.map { it.id }, playlist.id) } }
+            withTrackIds { container.playlists.addTracks(it, playlist.id) }
         }
     }
     val addToPlaylist = Action(stringResource(R.string.action_add_to_playlist), Icons.AutoMirrored.Outlined.PlaylistAdd) {
-        withTracks { list -> navigator.addToPlaylist(list.map { it.id }) }
+        withTrackIds { navigator.addToPlaylist(it) }
     }
     return listOf(
         listOfNotNull(play, shuffleAction.takeIf { shuffle }),

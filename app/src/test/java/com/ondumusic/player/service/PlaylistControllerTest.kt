@@ -153,6 +153,21 @@ class PlaylistControllerTest {
     }
 
     @Test
+    fun theRememberedPlaylistFollowsItsServerId() = runTest {
+        val controller = controller()
+        val created = controller.createPlaylist("Mix")!!
+        controller.addTracks(listOf(UUID.randomUUID()), created.id)
+        testScheduler.runCurrent()
+
+        val confirmed = Playlist(UUID.randomUUID(), "Mix", 1, now)
+        library.remapPlaylistId(created.id, confirmed)
+        testScheduler.runCurrent()
+
+        assertEquals(confirmed.id, controller.lastUsedPlaylistId.value)
+        assertEquals(confirmed.id, controller().lastUsedPlaylistId.value)
+    }
+
+    @Test
     fun addingToAnAutoDownloadPlaylistDownloadsWhatIsMissing() = runTest {
         val id = UUID.randomUUID()
         library.insertLocalPlaylist(Playlist(id, "Mix", 0, now))

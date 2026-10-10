@@ -12,6 +12,7 @@ import com.ondumusic.player.service.outbox.OutboxService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -47,6 +48,16 @@ class PlaylistController(
     private val _lastUsedPlaylistId = MutableStateFlow(prefs.getString(KEY_LAST_USED, null)?.let(::uuidOrNull))
     /** Powers the "Add to <name>" shortcut in track/album/artist menus. Set whenever tracks are added to a playlist. */
     val lastUsedPlaylistId: StateFlow<UUID?> = _lastUsedPlaylistId.asStateFlow()
+
+    init {
+        // A playlist made here starts under a temporary id; without following it to the
+        // server's, the shortcut would point at a playlist that no longer exists.
+        scope.launch {
+            musicLibrary.playlistIdRemapped.collect { (temp, real) ->
+                if (_lastUsedPlaylistId.value == temp) setLastUsed(real)
+            }
+        }
+    }
 
     private fun setLastUsed(id: UUID?) {
         _lastUsedPlaylistId.value = id
