@@ -107,6 +107,10 @@ class MusicLibrary(
             .associate { it.track.id to it.toTrack() }
     }
 
+    /** The downloaded file for a track, if it's downloaded and the file is still there. */
+    suspend fun downloadedFile(trackId: UUID): File? =
+        db.tracks().downloadedFilePath(trackId)?.let { File(filesDir, it) }?.takeIf { it.exists() }
+
     /** Disc, then track number. */
     fun observeTracksForAlbum(albumId: UUID): Flow<List<Track>> =
         db.tracks().observeForAlbum(albumId).map { rows -> rows.map { it.toTrack() } }

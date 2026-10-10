@@ -152,6 +152,9 @@ interface TrackDao {
     @Query("SELECT localFilePath FROM tracks WHERE id = :id")
     suspend fun localFilePath(id: UUID): String?
 
+    @Query("SELECT localFilePath FROM tracks WHERE id = :id AND isDownloaded = 1")
+    suspend fun downloadedFilePath(id: UUID): String?
+
     @Query("SELECT localFilePath FROM tracks WHERE (artistId = :artistId) AND localFilePath IS NOT NULL")
     suspend fun localFilePathsForArtist(artistId: UUID): List<String>
 
