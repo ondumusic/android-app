@@ -48,7 +48,7 @@ fun AlbumDownloadButton(album: Album, modifier: Modifier = Modifier) {
         current.isFull -> FilledTonalIconButton(onClick = { ui.confirm(confirmRemove { ui.perform { removeAlbum(album.id) } }) }, modifier) {
             Icon(Icons.Filled.DownloadDone, contentDescription = stringResource(R.string.download_remove))
         }
-        else -> FilledTonalIconButton(onClick = { ui.start { downloadAlbum(album.id) } }, modifier) {
+        else -> FilledTonalIconButton(onClick = { ui.perform { downloadAlbum(album.id) } }, modifier) {
             Icon(Icons.Outlined.Download, contentDescription = stringResource(R.string.download_action))
         }
     }
