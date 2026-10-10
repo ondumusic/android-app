@@ -21,7 +21,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ondumusic.player.R
+import com.ondumusic.player.data.observeDownloadSummary
 import com.ondumusic.player.model.Artist
+import com.ondumusic.player.settings.LibraryFilter
+import com.ondumusic.player.ui.browse.SortFilterMenu
 import com.ondumusic.player.ui.LocalContainer
 import com.ondumusic.player.ui.components.ArtistRow
 import com.ondumusic.player.ui.components.EmptyState
@@ -31,6 +34,8 @@ import com.ondumusic.player.ui.navigation.LocalNavigator
 import com.ondumusic.player.ui.navigation.Route
 import com.ondumusic.player.ui.navigation.ScrollToTopOnReselect
 import com.ondumusic.player.ui.navigation.Tab
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 
 /** Artists by sort name, under a letter for each initial; anything that doesn't start with a letter files under #. */
 fun artistSections(artists: List<Artist>): List<Pair<String, List<Artist>>> =
@@ -42,17 +47,37 @@ fun artistSections(artists: List<Artist>): List<Pair<String, List<Artist>>> =
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ArtistsScreen(actions: @Composable () -> Unit) {
-    val library = LocalContainer.current.library
+    val container = LocalContainer.current
+    val library = container.library
+    val settings = container.settings
     val navigator = LocalNavigator.current
-    val artists by remember { library.observeArtists() }.collectAsStateWithLifecycle(null)
+    val filter by settings.libraryFilter.flow.collectAsStateWithLifecycle()
+    val allArtists by remember { library.observeArtists() }.collectAsStateWithLifecycle(null)
+    // Downloaded artists count only their albums with downloads, as on iOS.
+    val downloaded by remember(filter) {
+        if (filter == LibraryFilter.Downloaded) library.observeDownloadSummary().map { it.artists } else flowOf(null)
+    }.collectAsStateWithLifecycle(null)
+    val downloadedAlbumCounts = remember(downloaded) { downloaded?.associate { it.artist.id to it.albumCount } }
+    val artists = remember(filter, allArtists, downloaded) {
+        if (filter == LibraryFilter.Downloaded) downloaded?.map { it.artist } else allArtists
+    }
     val sections = remember(artists) { artists?.let(::artistSections).orEmpty() }
     val listState = rememberLazyListState()
     ScrollToTopOnReselect(Tab.Artists, listState)
 
-    ScreenScaffold(stringResource(R.string.tab_artists), actions = { actions() }) { padding ->
+    ScreenScaffold(
+        stringResource(R.string.tab_artists),
+        actions = {
+            SortFilterMenu(filter = filter, onFilter = { settings.libraryFilter.value = it }, choices = emptyList())
+            actions()
+        },
+    ) { padding ->
         LibraryRefresh(Modifier.padding(top = padding.calculateTopPadding())) {
             if (artists?.isEmpty() == true) {
-                EmptyState(Icons.Outlined.Mic, stringResource(R.string.no_artists))
+                EmptyState(
+                    Icons.Outlined.Mic,
+                    stringResource(if (filter == LibraryFilter.Downloaded) R.string.no_downloaded_artists else R.string.no_artists),
+                )
             }
             LazyColumn(Modifier.fillMaxSize(), state = listState,
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = padding.calculateBottomPadding())) {
@@ -65,7 +90,12 @@ fun ArtistsScreen(actions: @Composable () -> Unit) {
                         }
                     }
                     items(group, key = { it.id }) { artist ->
-                        ArtistRow(artist, onClick = { navigator.push(Route.Artist(artist.id)) }, modifier = Modifier.animateItem())
+                        ArtistRow(
+                            artist,
+                            onClick = { navigator.push(Route.Artist(artist.id)) },
+                            modifier = Modifier.animateItem(),
+                            albumCount = downloadedAlbumCounts?.get(artist.id) ?: artist.albumCount,
+                        )
                     }
                 }
             }

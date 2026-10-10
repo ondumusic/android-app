@@ -9,6 +9,7 @@ import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.DropdownMenu
@@ -34,7 +35,8 @@ class SortChoice(val label: String, val selected: Boolean, val ascending: Boolea
 
 /**
  * The library filter and the orderings behind one toolbar button. Choosing the selected
- * ordering again reverses it, as on iOS, so direction needs no controls of its own.
+ * ordering again reverses it, as on iOS, so direction needs no controls of its own. With
+ * no [choices] it's a filter alone, as on the Artists tab.
  */
 @Composable
 fun SortFilterMenu(filter: LibraryFilter, onFilter: (LibraryFilter) -> Unit, choices: List<SortChoice>) {
@@ -44,7 +46,11 @@ fun SortFilterMenu(filter: LibraryFilter, onFilter: (LibraryFilter) -> Unit, cho
             // A dot while the filter hides part of the library, so an emptier list than
             // expected has a visible reason.
             BadgedBox(badge = { if (filter == LibraryFilter.Downloaded) Badge() }) {
-                Icon(Icons.AutoMirrored.Outlined.Sort, contentDescription = stringResource(R.string.sort_and_filter))
+                if (choices.isEmpty()) {
+                    Icon(Icons.Outlined.FilterList, contentDescription = stringResource(R.string.filter))
+                } else {
+                    Icon(Icons.AutoMirrored.Outlined.Sort, contentDescription = stringResource(R.string.sort_and_filter))
+                }
             }
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
@@ -56,8 +62,10 @@ fun SortFilterMenu(filter: LibraryFilter, onFilter: (LibraryFilter) -> Unit, cho
                     onClick = { open = false; onFilter(option) },
                 )
             }
-            HorizontalDivider(Modifier.padding(vertical = 4.dp))
-            MenuHeader(stringResource(R.string.sort_header))
+            if (choices.isNotEmpty()) {
+                HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                MenuHeader(stringResource(R.string.sort_header))
+            }
             choices.forEach { choice ->
                 DropdownMenuItem(
                     text = {
