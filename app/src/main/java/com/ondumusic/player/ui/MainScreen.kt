@@ -145,6 +145,10 @@ fun MainScreen() {
     val accountMenu: @Composable () -> Unit = { AccountMenu(onDownloads = { navigator.push(Route.Downloads) }, onSettings = { navigator.push(Route.Settings) }) }
     val tabHolder = rememberSaveableStateHolder()
 
+    // At the root of any other tab, Back goes to the first tab rather than out of the app,
+    // as Android's own tabbed apps do. Deeper in a tab, NavDisplay handles Back itself.
+    BackHandler(enabled = tab != Tab.Artists && stack.size == 1) { tab = Tab.Artists }
+
     CompositionLocalProvider(LocalNavigator provides navigator, LocalTabReselects provides reselects) {
         Box(Modifier.fillMaxSize()) {
             val layout = navigationLayout()
