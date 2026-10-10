@@ -21,6 +21,28 @@ matches iOS; visuals, navigation idioms and controls follow Android conventions.
 
 No Google Play Services dependency — the app must run on de-Googled devices.
 
+## Architecture
+
+Services are plain classes built once in `AppContainer` (the Android counterpart of the
+iOS app's environment objects) and read in Compose through `LocalContainer` / `LocalSession`.
+They expose state as `StateFlow`s; screens collect them.
+
+- `api/` — `ApiClient` (OkHttp + kotlinx.serialization), wire types (`SyncDtos`, `ApiBodies`),
+  typed errors, `ErrorMessages` (user-facing wording as `UiText`).
+- `auth/` — `AuthService` (optimistic restore, background validation, re-auth; never logs
+  out on its own), `TokenStore` (Keystore-encrypted token), `ServerAddress` (login URL rules).
+- `data/` — Room `LibraryDatabase`, DAOs, and `MusicLibrary`: every browse query (Room flows,
+  joined in SQL), sync upserts that never touch local-only columns, optimistic playlist writes.
+- `service/` — `SyncService` (cursor paging; `Hooks` for outbox/downloads/artwork), outbox
+  (`service/outbox/`), `PlaylistController`, `NetworkMonitor`, `SmartShuffle`, `FractionalIndex`.
+- `player/` — `PlayerService` (queue, shuffle/repeat, gapless-vs-crossfade decision, loudness,
+  play counting, persistence) over a `PlaybackEngine`; `ExoPlaybackEngine` (two ExoPlayers,
+  Media3 disk cache); `SessionPlayer` + `PlaybackService` expose it to the system media
+  session. The player is process-wide; a re-auth hands it a new token rather than replacing it.
+- `ui/` — `MainScreen` (five tabs with their own back stacks via Navigation 3, mini player,
+  full-player overlay), `ui/components` (shared rows, artwork, action sheets — the Android form
+  of iOS context menus), one package per area. Strings live in per-area `res/values/strings_*.xml`.
+
 ## Platform targets
 
 - `minSdk` 31 (Android 12), `targetSdk`/`compileSdk` 37. Newer-OS features are gated on
