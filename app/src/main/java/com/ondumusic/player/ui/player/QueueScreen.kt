@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
@@ -85,6 +86,7 @@ import com.ondumusic.player.player.PlayerService
 import com.ondumusic.player.ui.LocalContainer
 import com.ondumusic.player.ui.components.Artwork
 import com.ondumusic.player.ui.components.EmptyState
+import com.ondumusic.player.ui.components.SnackbarOverlayHost
 import com.ondumusic.player.ui.navigation.LocalNavigator
 
 /**
@@ -104,7 +106,11 @@ fun QueueSheet(onDismiss: () -> Unit) {
         // inset-sized spacer instead, so it scrolls behind that bar edge to edge.
         contentWindowInsets = { WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal) },
     ) {
-        QueueScreen()
+        Box {
+            QueueScreen()
+            // Undoing a swipe or a clear needs the snackbar where the swipe happened.
+            SnackbarOverlayHost(Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
+        }
     }
 }
 
