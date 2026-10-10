@@ -37,6 +37,7 @@ class ArtworkChanger internal constructor(
     var isUpdating by mutableStateOf(false)
         private set
     private var failure by mutableStateOf<ArtistArtworkEditor.Failure?>(null)
+    private var confirmingRemoval by mutableStateOf(false)
     private var lastChange: (suspend () -> Unit)? = null
     internal var pickPhoto: () -> Unit = {}
     internal var pickFile: () -> Unit = {}
@@ -62,15 +63,40 @@ class ArtworkChanger internal constructor(
         Action(stringResource(if (hasArtwork) R.string.artwork_replace_photo else R.string.artwork_choose_photo), Icons.Outlined.Image) { pickPhoto() },
         // An artist photo is as often something saved from a browser as something shot, so Files is a first-class way in.
         Action(stringResource(R.string.artwork_choose_file), Icons.Outlined.FolderOpen) { pickFile() },
-        if (hasArtwork) Action(stringResource(R.string.artwork_remove_photo), Icons.Outlined.Delete, destructive = true) { change { editor.remove(artistId) } } else null,
+        if (hasArtwork) Action(stringResource(R.string.artwork_remove_photo), Icons.Outlined.Delete, destructive = true) { confirmingRemoval = true } else null,
     )
+
+    @Composable
+    fun Dialogs() {
+        RemovalDialog()
+        FailureDialog()
+    }
+
+    /**
+     * Asked first, unlike the app's other removals: the photo is deleted on the server at
+     * once, so there's nothing for an Undo to bring back.
+     */
+    @Composable
+    private fun RemovalDialog() {
+        if (!confirmingRemoval) return
+        val dismiss = { confirmingRemoval = false }
+        AlertDialog(
+            onDismissRequest = dismiss,
+            title = { Text(stringResource(R.string.artwork_remove_title)) },
+            text = { Text(stringResource(R.string.artwork_remove_message)) },
+            confirmButton = {
+                TextButton(onClick = { dismiss(); change { editor.remove(artistId) } }) { Text(stringResource(R.string.artwork_remove_confirm)) }
+            },
+            dismissButton = { TextButton(onClick = dismiss) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
 
     /**
      * The kinds differ in what would help: a rejected image wants a different one, a failed
      * request wants the same one again.
      */
     @Composable
-    fun FailureDialog() {
+    private fun FailureDialog() {
         val current = failure ?: return
         val dismiss = { failure = null }
         val message = when (current) {

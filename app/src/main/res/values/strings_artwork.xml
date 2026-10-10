@@ -4,6 +4,9 @@
     <string name="artwork_replace_photo">Replace photo…</string>
     <string name="artwork_choose_file">Choose file…</string>
     <string name="artwork_remove_photo">Remove photo</string>
+    <string name="artwork_remove_title">Remove photo?</string>
+    <string name="artwork_remove_message">The photo is removed from the server for every device. This can’t be undone.</string>
+    <string name="artwork_remove_confirm">Remove</string>
     <string name="artwork_failed_title">Couldn’t update artwork</string>
     <string name="artwork_not_signed_in">Not signed in.</string>
     <string name="artwork_not_an_image">That file isn’t an image Ondu can read.</string>

@@ -134,7 +134,7 @@ fun ArtistScreen(artistId: UUID, downloadedOnly: Boolean = false) {
     artist?.let {
         if (showActions) ArtistActionSheet(it, onDismiss = { showActions = false }, extra = listOf(artwork.actions(hasArtwork = it.artwork.isNotEmpty())))
     }
-    artwork.FailureDialog()
+    artwork.Dialogs()
 }
 
 @Composable
