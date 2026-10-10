@@ -13,7 +13,6 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.ondumusic.player.model.RepeatMode
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 /**
@@ -32,7 +31,7 @@ class SessionPlayer(
     init {
         scope.launch {
             // Progress isn't part of this: the position supplier reads it live.
-            combine(player.state, player.replaceQueuePrompt) { _, _ -> }.collect { invalidateState() }
+            player.state.collect { invalidateState() }
         }
     }
 

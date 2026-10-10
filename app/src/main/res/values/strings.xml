@@ -20,6 +20,7 @@
     <!-- Common -->
     <string name="sign_out">Sign Out</string>
     <string name="retry">Retry</string>
+    <string name="undo">Undo</string>
     <plurals name="artist_count">
         <item quantity="one">%d artist</item>
         <item quantity="other">%d artists</item>

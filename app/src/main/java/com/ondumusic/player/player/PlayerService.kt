@@ -46,8 +46,29 @@ class PlayerService(
         val onUnauthorized: () -> Unit = {},
     )
 
-    enum class QueueConfirmationKind { PlayNext, AddedToQueue }
-    data class QueueConfirmation(val kind: QueueConfirmationKind, val count: Int, val id: Long = System.nanoTime())
+    enum class QueueConfirmationKind { PlayNext, AddedToQueue, Replaced, Removed, ClearedUpNext, ClearedHistory }
+
+    /** Something to tell the user about the queue; [undo] is set when the change can be taken back. */
+    data class QueueConfirmation(
+        val kind: QueueConfirmationKind,
+        val count: Int,
+        val undo: QueueUndo? = null,
+        val id: Long = System.nanoTime(),
+    )
+
+    /**
+     * The queue as it was before an edit, for [undo]. A replaced queue also brings back where
+     * playback was in it; a removal only puts the songs back, leaving playback where it is now.
+     */
+    class QueueUndo internal constructor(
+        internal val queue: List<QueueItem>,
+        internal val currentIndex: Int,
+        internal val shuffledIndices: List<Int>?,
+        internal val isUserModified: Boolean,
+        internal val position: Double,
+        internal val wasPlaying: Boolean,
+        internal val restoresPlayback: Boolean,
+    )
 
     data class Entry(val originalIndex: Int, val item: QueueItem)
 
@@ -109,9 +130,13 @@ class PlayerService(
     private val _queueConfirmation = MutableStateFlow<QueueConfirmation?>(null)
     val queueConfirmation: StateFlow<QueueConfirmation?> = _queueConfirmation.asStateFlow()
 
-    private val _replaceQueuePrompt = MutableStateFlow(false)
-    /** Asking before replacing a queue the user built by hand. */
-    val replaceQueuePrompt: StateFlow<Boolean> = _replaceQueuePrompt.asStateFlow()
+    private val _undoable = MutableStateFlow<QueueUndo?>(null)
+    /**
+     * The one edit [undo] can still take back. Any other change to the queue clears it, since
+     * putting back an older queue would then throw that change away too. Playback moving on
+     * doesn't: the songs are still where they were.
+     */
+    val undoable: StateFlow<QueueUndo?> = _undoable.asStateFlow()
 
     // Mutable model, published through [publish]
 
@@ -137,12 +162,11 @@ class PlayerService(
 
     /**
      * True once the user has shaped this queue by hand — Play Next, Add to Queue, reorder,
-     * remove. Replacing a queue you built is worth confirming; replacing one that is just
-     * "the album I pressed play on" is not.
+     * remove. Replacing a queue you built is worth offering to undo; replacing one that is
+     * just "the album I pressed play on" is not.
      */
     private var isQueueUserModified = false
 
-    private var pendingPlayAction: (() -> Unit)? = null
     /** Position to resume at, from a restored snapshot. Keyed by track so a skip before the first play doesn't seek the wrong one. */
     private var pendingResume: Pair<UUID, Double>? = null
     private var loadJob: Job? = null
@@ -203,30 +227,78 @@ class PlayerService(
         currentTrack = track
     }
 
-    // Replace-queue confirmation
+    // Undo
 
+    /**
+     * Runs [action], which starts something new playing. Replacing a queue the user built by
+     * hand can be undone; asking first would get in the way of the far more common case of
+     * meaning it.
+     */
     fun requestPlay(action: () -> Unit) {
-        if (currentTrack != null && isQueueUserModified) {
-            pendingPlayAction = action
-            _replaceQueuePrompt.value = true
-        } else {
-            action()
-        }
+        val replaced = if (currentTrack != null && isQueueUserModified) snapshot(restoresPlayback = true) else null
+        action()
+        // An action with nothing to play leaves the queue alone, and there's nothing to undo.
+        if (replaced != null && queue !== replaced.queue) offerUndo(QueueConfirmationKind.Replaced, 0, replaced)
     }
 
-    fun confirmPlay() {
-        _replaceQueuePrompt.value = false
-        pendingPlayAction?.invoke()
-        pendingPlayAction = null
-    }
-
-    fun cancelPlay() {
-        _replaceQueuePrompt.value = false
-        pendingPlayAction = null
+    /** Takes back [edit] if it is still the latest edit. False when the queue has changed since. */
+    fun undo(edit: QueueUndo): Boolean {
+        if (_undoable.value !== edit) return false
+        _undoable.value = null
+        if (edit.restoresPlayback) restorePlayback(edit) else restoreQueue(edit)
+        return true
     }
 
     fun consumeQueueConfirmation() {
         _queueConfirmation.value = null
+    }
+
+    private fun snapshot(restoresPlayback: Boolean): QueueUndo {
+        // The ticker only samples twice a second, and not at all while loading.
+        val position = if (isPlaying && hasLoadedSource && !isBuffering) engine.position else _progress.value
+        return QueueUndo(queue, currentIndex, shuffledIndices, isQueueUserModified, position, isPlaying, restoresPlayback)
+    }
+
+    private fun offerUndo(kind: QueueConfirmationKind, count: Int, undo: QueueUndo) {
+        _undoable.value = undo
+        _queueConfirmation.value = QueueConfirmation(kind, count, undo)
+    }
+
+    /**
+     * Puts removed songs back. Playback may have moved on since, so the current track is found
+     * again by identity rather than restoring the old index, which would jump backwards.
+     */
+    private fun restoreQueue(edit: QueueUndo) {
+        val playing = queue.getOrNull(effectiveIndex)?.id
+        queue = edit.queue
+        shuffledIndices = edit.shuffledIndices
+        isQueueUserModified = edit.isUserModified
+        val order = edit.shuffledIndices ?: edit.queue.indices.toList()
+        currentIndex = order.indexOfFirst { edit.queue.getOrNull(it)?.id == playing }.takeIf { it >= 0 } ?: edit.currentIndex
+        invalidateTransition()
+        savePlaybackState()
+    }
+
+    /** Back to the replaced queue, at the same point in the same track, playing only if it was. */
+    private fun restorePlayback(edit: QueueUndo) {
+        queue = edit.queue
+        shuffledIndices = edit.shuffledIndices
+        currentIndex = edit.currentIndex
+        isQueueUserModified = edit.isUserModified
+        val track = queue.getOrNull(effectiveIndex)?.track ?: return publish()
+        pendingResume = track.id to edit.position
+        if (edit.wasPlaying) return loadAndPlayCurrent()
+        // Cued up as after a relaunch: play loads the track and resumes at the saved position.
+        cancelLoading()
+        engine.stop()
+        hasLoadedSource = false
+        isPlaying = false
+        isBuffering = false
+        playbackError = null
+        setCurrentTrack(track)
+        duration = track.duration
+        _progress.value = edit.position
+        savePlaybackState()
     }
 
     // Queue operations
@@ -238,6 +310,7 @@ class PlayerService(
         playNowQueue(items(tracks, artworkUrl), startingAt)
 
     fun playNowQueue(items: List<QueueItem>, startingAt: Int = 0) {
+        _undoable.value = null
         queue = items
         shuffledIndices = null
         currentIndex = startingAt
@@ -250,6 +323,7 @@ class PlayerService(
 
     fun playShuffledQueue(items: List<QueueItem>) {
         if (items.isEmpty()) return
+        _undoable.value = null
         queue = items
         shuffledIndices = SmartShuffle.shuffledIndices(items)
         currentIndex = 0
@@ -263,6 +337,7 @@ class PlayerService(
     fun playNextQueue(items: List<QueueItem>) {
         if (items.isEmpty()) return
         if (queue.isEmpty()) return playNowQueue(items)
+        _undoable.value = null
         val insertIndex = minOf(effectiveIndex + 1, queue.size)
         queue = queue.toMutableList().apply { addAll(insertIndex, items) }
         shuffledIndices?.let { shuffled ->
@@ -286,6 +361,7 @@ class PlayerService(
     fun insertIntoQueue(items: List<QueueItem>, position: Int) {
         if (items.isEmpty()) return
         if (queue.isEmpty()) return playNowQueue(items)
+        _undoable.value = null
         val nextBefore = upcomingTrackId
         val slot = position.coerceIn(0, _state.value.upNext.size)
         val shuffled = shuffledIndices
@@ -311,6 +387,7 @@ class PlayerService(
     fun addToEndQueue(items: List<QueueItem>) {
         if (items.isEmpty()) return
         if (queue.isEmpty()) return playNowQueue(items)
+        _undoable.value = null
         val nextBefore = upcomingTrackId
         val startIndex = queue.size
         queue = queue + items
@@ -407,6 +484,7 @@ class PlayerService(
 
     /** Stops playback and empties the player, as before anything was asked for. Sign-out needs this. */
     fun stopAndClear() {
+        _undoable.value = null
         cancelLoading()
         engine.stop()
         hasLoadedSource = false
@@ -432,6 +510,8 @@ class PlayerService(
 
     fun clearUpNext() {
         val keep = currentIndex + 1
+        if (queue.size <= keep) return
+        val before = snapshot(restoresPlayback = false)
         val shuffled = shuffledIndices
         if (shuffled != null) {
             rebuildFromShuffled(shuffled.take(keep))
@@ -439,6 +519,7 @@ class PlayerService(
             queue = queue.take(keep)
         }
         isQueueUserModified = true
+        offerUndo(QueueConfirmationKind.ClearedUpNext, before.queue.size - queue.size, before)
         invalidateTransition()
         savePlaybackState()
     }
@@ -449,6 +530,7 @@ class PlayerService(
      */
     fun clearHistory() {
         if (currentIndex <= 0) return
+        val before = snapshot(restoresPlayback = false)
         val shuffled = shuffledIndices
         if (shuffled != null) {
             rebuildFromShuffled(shuffled.drop(currentIndex))
@@ -457,6 +539,7 @@ class PlayerService(
         }
         currentIndex = 0
         isQueueUserModified = true
+        offerUndo(QueueConfirmationKind.ClearedHistory, before.queue.size - queue.size, before)
         savePlaybackState()
     }
 
@@ -474,6 +557,8 @@ class PlayerService(
         val positions = offsets.map { upNextStart + it }
         val shuffled = shuffledIndices
         val realIndices = if (shuffled != null) positions.mapNotNull { shuffled.getOrNull(it) } else positions
+        if (realIndices.none { it in queue.indices }) return
+        val before = snapshot(restoresPlayback = false)
         val mutableQueue = queue.toMutableList()
         var mutableShuffled = shuffled
         for (idx in realIndices.sortedDescending()) {
@@ -484,12 +569,14 @@ class PlayerService(
         queue = mutableQueue
         shuffledIndices = mutableShuffled
         isQueueUserModified = true
+        offerUndo(QueueConfirmationKind.Removed, before.queue.size - queue.size, before)
         invalidateTransition()
         savePlaybackState()
     }
 
     /** Positions within up-next, with [destination] as an insertion point before the move, the way list reordering reports it. */
     fun moveQueueItems(source: Set<Int>, destination: Int) {
+        _undoable.value = null
         val nextBefore = upcomingTrackId
         val upNextStart = currentIndex + 1
         val shuffled = shuffledIndices
@@ -514,6 +601,7 @@ class PlayerService(
         }
 
     fun toggleShuffle() {
+        _undoable.value = null
         val realIndex = effectiveIndex
         if (shuffledIndices != null) {
             shuffledIndices = null

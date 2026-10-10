@@ -26,7 +26,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
@@ -44,6 +43,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
@@ -60,7 +60,10 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.ondumusic.player.R
 import com.ondumusic.player.ui.albums.AlbumsScreen
+import com.ondumusic.player.ui.components.AppSnackbars
 import com.ondumusic.player.ui.components.LocalBottomContentPadding
+import com.ondumusic.player.ui.components.LocalSnackbars
+import com.ondumusic.player.ui.components.MainSnackbarHost
 import com.ondumusic.player.ui.downloads.DownloadsScreen
 import com.ondumusic.player.ui.downloads.inProgressCount
 import com.ondumusic.player.ui.library.AlbumScreen
@@ -113,7 +116,9 @@ fun MainScreen() {
     val reselects = remember { MutableSharedFlow<Tab>(extraBufferCapacity = 1) }
     val playerState by container.player.state.collectAsStateWithLifecycle()
     val hasMiniPlayer = playerState.currentTrack != null
-    val snackbars = remember { SnackbarHostState() }
+    val snackbarScope = rememberCoroutineScope()
+    val undoLabel = stringResource(R.string.undo)
+    val snackbars = remember { AppSnackbars(SnackbarHostState(), snackbarScope, undoLabel) }
 
     val navigator = remember(stacks) {
         object : Navigator {
@@ -150,7 +155,7 @@ fun MainScreen() {
     // as Android's own tabbed apps do. Deeper in a tab, NavDisplay handles Back itself.
     BackHandler(enabled = tab != Tab.Artists && stack.size == 1) { tab = Tab.Artists }
 
-    CompositionLocalProvider(LocalNavigator provides navigator, LocalTabReselects provides reselects) {
+    CompositionLocalProvider(LocalNavigator provides navigator, LocalTabReselects provides reselects, LocalSnackbars provides snackbars) {
         Box(Modifier.fillMaxSize()) {
             val layout = navigationLayout()
             // With the bar gone, nothing below the content accounts for the gesture area any more.
@@ -218,8 +223,8 @@ fun MainScreen() {
                 FullPlayerScreen(onClose = { showFullPlayer = false })
             }
 
-            PlayerFeedback(snackbars)
-            SnackbarHost(snackbars, Modifier.align(Alignment.BottomCenter).playerSnackbarPadding(showFullPlayer && hasMiniPlayer, hasMiniPlayer))
+            PlayerFeedback()
+            MainSnackbarHost(Modifier.align(Alignment.BottomCenter).playerSnackbarPadding(showFullPlayer && hasMiniPlayer, hasMiniPlayer))
             PlaylistSyncErrorDialog()
         }
         addToPlaylist?.let { ids -> AddToPlaylistSheet(ids, onDismiss = { addToPlaylist = null }) }

@@ -467,51 +467,6 @@ class PlayerQueueTest {
         assertEquals(0, player.s.currentIndex)
     }
 
-    // Queue confirmation
-
-    @Test
-    fun requestPlayShowsConfirmationForAHandBuiltQueue() = test {
-        val player = makePlayer()
-        player.playNowQueue(items("A", "B"), startingAt = 0)
-        player.playNextQueue(items("C"))
-
-        var actionCalled = false
-        player.requestPlay { actionCalled = true }
-
-        assertTrue(player.replaceQueuePrompt.value)
-        assertFalse(actionCalled)
-
-        player.confirmPlay()
-        assertTrue(actionCalled)
-    }
-
-    /** Spanning several albums isn't the trigger — only hand edits are — so a multi-album queue you didn't build plays straight through. */
-    @Test
-    fun requestPlayExecutesImmediatelyForAnUntouchedQueue() = test {
-        val player = makePlayer()
-        player.playNowQueue(listOf(makeQueueItem(name = "A", albumId = UUID.randomUUID()), makeQueueItem(name = "B", albumId = UUID.randomUUID())), startingAt = 0)
-
-        var actionCalled = false
-        player.requestPlay { actionCalled = true }
-
-        assertTrue(actionCalled)
-        assertFalse(player.replaceQueuePrompt.value)
-    }
-
-    @Test
-    fun cancelPlayClearsPending() = test {
-        val player = makePlayer()
-        player.playNowQueue(items("A", "B"), startingAt = 0)
-        player.playNextQueue(items("C"))
-
-        var actionCalled = false
-        player.requestPlay { actionCalled = true }
-        player.cancelPlay()
-        player.confirmPlay()
-
-        assertFalse(actionCalled)
-    }
-
     // Playback failure
 
     @Test
@@ -560,32 +515,7 @@ class PlayerQueueTest {
         assertEquals(1, engine.plays.size)
     }
 
-    // Replace-queue confirmation
-
-    @Test
-    fun playingAFreshQueueDoesNotPrompt() = test {
-        val player = makePlayer()
-        player.playNowQueue(items("A"), startingAt = 0)
-
-        var played = false
-        player.requestPlay { played = true }
-
-        assertTrue(played)
-        assertFalse(player.replaceQueuePrompt.value)
-    }
-
-    @Test
-    fun replacingAHandBuiltQueuePrompts() = test {
-        val player = makePlayer()
-        player.playNowQueue(items("A"), startingAt = 0)
-        player.addToEndQueue(items("B"))
-
-        var played = false
-        player.requestPlay { played = true }
-
-        assertFalse(played)
-        assertTrue(player.replaceQueuePrompt.value)
-    }
+    // Hand-built queues
 
     @Test
     fun aFreshQueueClearsTheHandBuiltFlag() = test {

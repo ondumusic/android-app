@@ -3,76 +3,57 @@ package com.ondumusic.player.ui.player
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ondumusic.player.R
 import com.ondumusic.player.player.PlayerService.QueueConfirmationKind
 import com.ondumusic.player.ui.LocalContainer
-import kotlinx.coroutines.flow.collectLatest
+import com.ondumusic.player.ui.components.LocalSnackbars
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.map
 
 /**
- * What the player has to tell the user wherever they are: a snackbar confirming that
- * tracks were queued, and the question before a hand-built queue is replaced.
+ * What the player has to tell the user wherever they are: that tracks were queued, or that
+ * the queue changed in a way they can undo.
  */
 @Composable
-fun PlayerFeedback(snackbars: SnackbarHostState) {
+fun PlayerFeedback() {
     val player = LocalContainer.current.player
+    val snackbars = LocalSnackbars.current
     val resources = LocalResources.current
-    val askToReplace by player.replaceQueuePrompt.collectAsStateWithLifecycle()
 
     LaunchedEffect(player) {
         // Consuming clears the flow, so this can't be keyed on its value: the null that
-        // follows would cancel the snackbar it had just started showing.
-        player.queueConfirmation.filterNotNull().collectLatest { c ->
+        // follows would restart the effect.
+        player.queueConfirmation.filterNotNull().collect { c ->
             player.consumeQueueConfirmation()
+            fun counted(one: Int, many: Int) =
+                if (c.count == 1) resources.getString(one) else resources.getQuantityString(many, c.count, c.count)
             val message = when (c.kind) {
-                QueueConfirmationKind.PlayNext ->
-                    if (c.count == 1) resources.getString(R.string.queue_playing_next)
-                    else resources.getQuantityString(R.plurals.queue_playing_next_count, c.count, c.count)
-                QueueConfirmationKind.AddedToQueue ->
-                    if (c.count == 1) resources.getString(R.string.queue_added)
-                    else resources.getQuantityString(R.plurals.queue_added_count, c.count, c.count)
+                QueueConfirmationKind.PlayNext -> counted(R.string.queue_playing_next, R.plurals.queue_playing_next_count)
+                QueueConfirmationKind.AddedToQueue -> counted(R.string.queue_added, R.plurals.queue_added_count)
+                QueueConfirmationKind.Replaced -> resources.getString(R.string.queue_replaced)
+                QueueConfirmationKind.Removed -> counted(R.string.queue_removed, R.plurals.queue_removed_count)
+                QueueConfirmationKind.ClearedUpNext -> resources.getString(R.string.queue_up_next_cleared)
+                QueueConfirmationKind.ClearedHistory -> resources.getString(R.string.queue_history_cleared)
             }
-            // A second confirmation replaces the first rather than queueing behind it: the
-            // newest one describes the queue as it is now.
-            snackbars.currentSnackbarData?.dismiss()
-            snackbars.showSnackbar(message, duration = SnackbarDuration.Short)
+            val undo = c.undo
+            if (undo == null) snackbars.show(message)
+            else snackbars.showUndo(message, player.undoable.map { it === undo }, onUndo = { player.undo(undo) })
         }
-    }
-
-    if (askToReplace) {
-        AlertDialog(
-            onDismissRequest = player::cancelPlay,
-            title = { Text(stringResource(R.string.replace_queue_title)) },
-            text = { Text(stringResource(R.string.replace_queue_message)) },
-            // Replacing loses nothing the user made and is what they just asked for, so
-            // it's the plain confirm action rather than a destructive one.
-            confirmButton = { TextButton(onClick = player::confirmPlay) { Text(stringResource(R.string.replace_queue_confirm)) } },
-            dismissButton = { TextButton(onClick = player::cancelPlay) { Text(stringResource(R.string.replace_queue_cancel)) } },
-        )
     }
 }
 
 /**
- * Lifts the player's snackbars clear of the bottom navigation and the mini player, which
- * float over content at the bottom of the window. Over the full player only the system bar
- * is in the way.
+ * Lifts the snackbars clear of the bottom navigation and the mini player, which float over
+ * content at the bottom of the window. Over the full player only the system bar is in the way.
  */
 @Composable
 fun Modifier.playerSnackbarPadding(fullPlayerShowing: Boolean, hasMiniPlayer: Boolean): Modifier {
