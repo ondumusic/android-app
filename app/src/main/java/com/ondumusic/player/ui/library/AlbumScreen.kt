@@ -25,6 +25,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,16 +48,19 @@ import com.ondumusic.player.ui.components.Artwork
 import com.ondumusic.player.ui.components.EmptyState
 import com.ondumusic.player.ui.components.ScreenScaffold
 import com.ondumusic.player.ui.components.TrackRow
+import com.ondumusic.player.ui.downloads.AlbumDownloadButton
 import com.ondumusic.player.ui.navigation.LocalNavigator
 import java.util.UUID
 
+/** [downloadedOnly] lists only the downloaded songs, and leaves once there are none. */
 @Composable
-fun AlbumScreen(albumId: UUID) {
+fun AlbumScreen(albumId: UUID, downloadedOnly: Boolean = false) {
     val container = LocalContainer.current
     val library = container.library
     val navigator = LocalNavigator.current
     val album by remember(albumId) { library.observeAlbum(albumId) }.collectAsStateWithLifecycle(null)
-    val tracks by remember(albumId) { library.observeTracksForAlbum(albumId) }.collectAsStateWithLifecycle(null)
+    val allTracks by remember(albumId) { library.observeTracksForAlbum(albumId) }.collectAsStateWithLifecycle(null)
+    val tracks = if (downloadedOnly) allTracks?.filter { it.isDownloaded } else allTracks
     val online by container.network.isOnline.collectAsStateWithLifecycle()
     var showActions by rememberSaveable { mutableStateOf(false) }
 
@@ -65,6 +69,8 @@ fun AlbumScreen(albumId: UUID) {
     // reads as duplicate rows without something in between.
     val discs = tracks.orEmpty().groupBy { it.disc }.toSortedMap()
     val multiDisc = discs.size > 1
+
+    if (downloadedOnly && tracks?.isEmpty() == true) LaunchedEffect(Unit) { navigator.pop() }
 
     fun play(start: Track? = null, shuffle: Boolean = false) {
         if (available.isEmpty()) return
@@ -97,11 +103,18 @@ fun AlbumScreen(albumId: UUID) {
                                 modifier = Modifier.clickable { navigator.showArtist(a.artistId) }.padding(4.dp))
                         }
                         val count = tracks?.size ?: 0
+                        val total = allTracks?.size ?: 0
+                        val songs = if (count < total) {
+                            pluralStringResource(R.plurals.download_songs_of_total, total, count, total)
+                        } else {
+                            pluralStringResource(R.plurals.song_count, count, count)
+                        }
                         Text(
-                            listOfNotNull(a.releaseYear?.toString(), pluralStringResource(R.plurals.song_count, count, count)).joinToString(" · "),
+                            listOfNotNull(a.releaseYear?.toString(), songs).joinToString(" · "),
                             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
                             Button(onClick = { play() }, enabled = available.isNotEmpty(), modifier = Modifier.weight(1f)) {
                                 Icon(Icons.Filled.PlayArrow, contentDescription = null, Modifier.size(18.dp))
                                 Spacer(Modifier.size(8.dp))
@@ -112,6 +125,7 @@ fun AlbumScreen(albumId: UUID) {
                                 Spacer(Modifier.size(8.dp))
                                 Text(stringResource(R.string.action_shuffle))
                             }
+                            AlbumDownloadButton(a)
                         }
                     }
                 }

@@ -12,8 +12,9 @@ sealed interface Route : NavKey {
     @Serializable data object Search : Route
     @Serializable data object Playlists : Route
 
-    @Serializable data class Artist(val id: SerialUuid) : Route
-    @Serializable data class Album(val id: SerialUuid) : Route
+    /** [downloadedOnly] shows only what's on the device: the artists and albums reached from Downloads. */
+    @Serializable data class Artist(val id: SerialUuid, val downloadedOnly: Boolean = false) : Route
+    @Serializable data class Album(val id: SerialUuid, val downloadedOnly: Boolean = false) : Route
     @Serializable data class Playlist(val id: SerialUuid) : Route
     @Serializable data class Folder(val id: SerialUuid) : Route
 

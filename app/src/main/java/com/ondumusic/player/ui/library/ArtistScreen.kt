@@ -1,5 +1,6 @@
 package com.ondumusic.player.ui.library
 
+import android.text.format.Formatter
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -28,6 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,10 +37,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ondumusic.player.R
+import com.ondumusic.player.data.observeDownloadedAlbums
 import com.ondumusic.player.ui.LocalContainer
 import com.ondumusic.player.ui.components.AlbumCard
 import com.ondumusic.player.ui.components.ArtistActionSheet
@@ -47,17 +51,23 @@ import com.ondumusic.player.ui.components.EmptyState
 import com.ondumusic.player.ui.components.ScreenScaffold
 import com.ondumusic.player.ui.navigation.LocalNavigator
 import com.ondumusic.player.ui.navigation.Route
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import java.util.UUID
 
+/** [downloadedOnly] lists only albums with downloads, with their size, and leaves once there are none. */
 @Composable
-fun ArtistScreen(artistId: UUID) {
+fun ArtistScreen(artistId: UUID, downloadedOnly: Boolean = false) {
     val container = LocalContainer.current
     val library = container.library
     val navigator = LocalNavigator.current
     // Observed rather than passed in, so new artwork or a rename shows without leaving the page.
     val artist by remember(artistId) { library.observeArtist(artistId) }.collectAsStateWithLifecycle(null)
     val albums by remember(artistId) { library.observeAlbumsForArtist(artistId) }.collectAsStateWithLifecycle(null)
+    val downloaded by remember(artistId, downloadedOnly) {
+        if (downloadedOnly) library.observeDownloadedAlbums(artistId) else flowOf(null)
+    }.collectAsStateWithLifecycle(null)
+    val context = LocalContext.current
     var showActions by rememberSaveable { mutableStateOf(false) }
     val artwork = rememberArtworkChanger(artistId)
 
@@ -102,14 +112,25 @@ fun ArtistScreen(artistId: UUID) {
                     onShuffle = { playAll(shuffle = true) },
                 )
             }
-            items(albums.orEmpty(), key = { it.id }) { album ->
-                AlbumCard(album, onClick = { navigator.push(Route.Album(album.id)) })
+            if (downloadedOnly) {
+                items(downloaded.orEmpty(), key = { it.album.id }) { item ->
+                    AlbumCard(
+                        item.album,
+                        onClick = { navigator.push(Route.Album(item.album.id, downloadedOnly = true)) },
+                        subtitle = Formatter.formatShortFileSize(context, item.size),
+                    )
+                }
+            } else {
+                items(albums.orEmpty(), key = { it.id }) { album ->
+                    AlbumCard(album, onClick = { navigator.push(Route.Album(album.id)) })
+                }
             }
-            if (albums?.isEmpty() == true) {
+            if (!downloadedOnly && albums?.isEmpty() == true) {
                 item(span = { GridItemSpan(maxLineSpan) }) { EmptyState(Icons.Outlined.Album, stringResource(R.string.no_albums)) }
             }
         }
     }
+    if (downloadedOnly && downloaded?.isEmpty() == true) LaunchedEffect(Unit) { navigator.pop() }
     artist?.let {
         if (showActions) ArtistActionSheet(it, onDismiss = { showActions = false }, extra = listOf(artwork.actions(hasArtwork = it.artwork.isNotEmpty())))
     }
