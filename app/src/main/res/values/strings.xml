@@ -16,4 +16,40 @@
     <string name="error_login_failed">Login failed</string>
     <string name="error_reauth_failed">Re-authentication failed</string>
     <string name="error_stored_sign_in_unreadable">Couldn’t read your saved sign-in. Enter your password to continue.</string>
+
+    <!-- Common -->
+    <string name="sign_out">Sign Out</string>
+    <string name="retry">Retry</string>
+    <plurals name="artist_count">
+        <item quantity="one">%d artist</item>
+        <item quantity="other">%d artists</item>
+    </plurals>
+    <plurals name="album_count">
+        <item quantity="one">%d album</item>
+        <item quantity="other">%d albums</item>
+    </plurals>
+    <plurals name="track_count">
+        <item quantity="one">%d track</item>
+        <item quantity="other">%d tracks</item>
+    </plurals>
+    <plurals name="song_count">
+        <item quantity="one">%d song</item>
+        <item quantity="other">%d songs</item>
+    </plurals>
+
+    <!-- Sign in -->
+    <string name="login_subtitle">Sign in to your Ondu server</string>
+    <string name="login_server">Server</string>
+    <string name="login_username">Username</string>
+    <string name="login_password">Password</string>
+    <string name="login_show_password">Show password</string>
+    <string name="login_hide_password">Hide password</string>
+    <string name="login_sign_in">Sign In</string>
+    <string name="login_no_server">Don’t have a server?</string>
+    <string name="login_https_required">Your server must use https. Sign-in details and your music would otherwise travel unencrypted.</string>
+
+    <!-- Initial sync -->
+    <string name="sync_getting_ready">Getting your library ready</string>
+    <string name="sync_first_sync_note">The first sync can take a few minutes.</string>
+    <string name="sync_failed">Sync Failed</string>
 </resources>
