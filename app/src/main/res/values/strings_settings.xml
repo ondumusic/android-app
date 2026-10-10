@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cancel">Cancel</string>
+    <string name="done">Done</string>
+
+    <string name="settings_playback">Playback</string>
+    <string name="settings_crossfade">Crossfade</string>
+    <string name="settings_seconds">%1$ds</string>
+    <string name="settings_crossfade_footer">Smoothly transition between tracks by overlapping the end of one with the start of the next. Tracks that run on from each other on an album still play without a gap.</string>
+    <string name="settings_normalize">Normalize Volume</string>
+    <string name="settings_normalize_footer">Plays every track at a similar loudness, so quiet albums and loud ones don’t jump. Albums keep their own quiet and loud moments. Turns the volume down, never up.</string>
+    <string name="settings_record_plays">Record Plays</string>
+    <string name="settings_record_plays_footer">Counts a track as played once you’ve heard most of it, and tells your server. Turning this off stops this device counting; plays already recorded are kept, and your other devices carry on.</string>
+
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_tinted_player">Artwork-Tinted Player</string>
+    <string name="settings_tinted_player_footer">Colors the player background based on the current track’s album artwork.</string>
+    <string name="settings_haptics">Haptic Feedback</string>
+    <string name="settings_accent">Accent Color</string>
+    <string name="settings_accent_footer">Colors the app is built around. The rest of the palette is derived from it.</string>
+    <string name="settings_accent_wallpaper_footer">Takes the app’s colors from your wallpaper, like the rest of your phone.</string>
+    <string name="settings_hue">Hue</string>
+    <string name="settings_saturation">Saturation</string>
+    <string name="accent_blue">Blue</string>
+    <string name="accent_indigo">Indigo</string>
+    <string name="accent_purple">Purple</string>
+    <string name="accent_pink">Pink</string>
+    <string name="accent_red">Red</string>
+    <string name="accent_orange">Orange</string>
+    <string name="accent_yellow">Yellow</string>
+    <string name="accent_green">Green</string>
+    <string name="accent_teal">Teal</string>
+    <string name="accent_wallpaper">Wallpaper colors</string>
+    <string name="accent_custom">Custom color</string>
+
+    <string name="settings_cache">Playback Cache</string>
+    <string name="settings_cache_limit">Cache Limit</string>
+    <string name="settings_unlimited">Unlimited</string>
+    <string name="settings_cache_size">Cache Size</string>
+    <string name="settings_clear_cache">Clear Cache</string>
+    <string name="settings_clear_cache_title">Clear Playback Cache?</string>
+    <string name="settings_clear_cache_message">This will remove %1$s of cached audio. Tracks will be re-streamed on next play.</string>
+    <string name="settings_cache_footer">Recently played tracks are cached locally to avoid re-streaming. Set a limit or choose Unlimited.</string>
+
+    <string name="settings_quality">Quality</string>
+    <string name="settings_streaming_quality">Streaming Quality</string>
+    <string name="settings_download_quality">Download Quality</string>
+    <string name="settings_quality_footer">Streaming quality applies when playing from the server. Download quality only affects new downloads.</string>
+    <string name="quality_original">Original</string>
+    <string name="quality_default">Default (256 kbps)</string>
+    <string name="quality_mobile">Mobile (128 kbps)</string>
+
+    <string name="settings_concurrent_downloads">Concurrent Downloads</string>
+    <string name="settings_auto_download">Auto-Download New Tracks</string>
+    <string name="settings_auto_download_footer">Automatically download new tracks added to the server after each sync.</string>
+
+    <string name="settings_library">Library</string>
+    <string name="settings_last_synced">Last Synced</string>
+    <string name="settings_never">Never</string>
+    <string name="settings_sync_now">Sync Now</string>
+    <string name="settings_rebuild">Rebuild Library</string>
+    <string name="settings_rebuild_title">Rebuild Library?</string>
+    <string name="settings_rebuild_message">Downloads your whole library again from the server. Downloaded music and playlists are kept.</string>
+    <string name="settings_rebuild_confirm">Rebuild</string>
+
+    <string name="settings_account">Account</string>
+    <string name="settings_signed_in_as">Signed in as</string>
+    <string name="settings_server_version">Server Version</string>
+    <string name="sign_out_title">Sign Out?</string>
+    <string name="sign_out_message">This will remove all offline data including downloads, cached artwork, and your synced library from this device.</string>
+</resources>

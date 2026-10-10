@@ -20,7 +20,7 @@ private val IconBlueLight = Color(0.219f, 0.406f, 0.946f)
 private val IconBlueDark = Color(0.300f, 0.519f, 1.000f)
 
 /** The iOS system colours the other presets are named after, so an accent means the same on both apps. */
-private fun AccentColor.seed(dark: Boolean, custom: Color): Color = when (this) {
+fun AccentColor.accentSeed(dark: Boolean, custom: Color): Color = when (this) {
     AccentColor.Blue, AccentColor.Wallpaper -> if (dark) IconBlueDark else IconBlueLight
     AccentColor.Indigo -> Color(0xFF5856D6)
     AccentColor.Purple -> Color(0xFFAF52DE)
@@ -46,7 +46,7 @@ fun OnduTheme(
     } else {
         // Fidelity keeps the primary colour at the accent the user picked rather than a
         // muted tone of it; the rest of the scheme is derived around it.
-        rememberDynamicColorScheme(seedColor = accent.seed(dark, customAccent), isDark = dark, style = PaletteStyle.Fidelity)
+        rememberDynamicColorScheme(seedColor = accent.accentSeed(dark, customAccent), isDark = dark, style = PaletteStyle.Fidelity)
     }
     MaterialTheme(colorScheme = colorScheme, content = content)
 }
