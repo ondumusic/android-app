@@ -22,6 +22,7 @@ import com.ondumusic.player.player.PlayerService
 import com.ondumusic.player.player.SessionPlayer
 import com.ondumusic.player.service.NetworkMonitor
 import com.ondumusic.player.ui.navigation.LaunchActions
+import com.ondumusic.player.service.PendingPlaylistEdits
 import com.ondumusic.player.service.PlaylistController
 import com.ondumusic.player.service.SyncService
 import com.ondumusic.player.service.downloads.DownloadService
@@ -87,6 +88,9 @@ class AppContainer(context: Context) {
         downloadTracks = downloads::downloadTracks,
     )
 
+    /** Playlist removals held back while their undo snackbar shows. */
+    val playlistEdits = PendingPlaylistEdits(playlists, library, scope)
+
     private val cacheEvictor = PlaybackCacheEvictor(settings.playbackCacheLimit.value)
 
     /** Streams cache as they play, up to the size the settings allow, least recently played going first. */
@@ -134,6 +138,7 @@ class AppContainer(context: Context) {
                     // nobody signed in has nothing to discard.
                     if (hadSession) {
                         player.stopAndClear()
+                        playlistEdits.discardAll()
                         clearPlaybackCache()
                         SingletonImageLoader.get(appContext).apply {
                             memoryCache?.clear()
@@ -158,7 +163,12 @@ class AppContainer(context: Context) {
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) = onForeground()
-            override fun onStop(owner: LifecycleOwner) = player.savePlaybackPosition()
+            override fun onStop(owner: LifecycleOwner) {
+                player.savePlaybackPosition()
+                // A backgrounded app may be killed before an undo snackbar runs out, and the
+                // user meant the removal.
+                playlistEdits.commitAll()
+            }
         })
 
         network.onRestored = outbox::drainSoon
