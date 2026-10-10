@@ -96,22 +96,7 @@ Judge a build by its exit code.
 
 ### Release builds
 
-Release builds are shrunk with R8, so check one on a device before sharing it: sign in,
-sync, play, download. Signing reads `keystore.properties` in the repository root (ignored
-by git):
-
-```properties
-storeFile=/absolute/path/to/ondu-release.jks
-storePassword=…
-keyAlias=ondu
-keyPassword=…
-```
-
-Without it `assembleRelease` produces an unsigned APK. Every update must be signed with the
-same key, or Android refuses to install it over the old one; losing the key means users must
-uninstall (and lose their downloads) to move to a new one. Bump `versionCode` for every build
-that's shared.
-
-```bash
-./gradlew :app:assembleRelease        # app/build/outputs/apk/release/app-release.apk
-```
+`docs/RELEASING.md` covers the signing key, version bumps, building, checking, archiving and
+distribution. Release builds are shrunk with R8, so check one on a device before it's shared.
+Signing reads `keystore.properties` in the repository root, which git ignores; without it
+`assembleRelease` produces an unsigned APK.
