@@ -94,10 +94,12 @@ fun TrackActionSheet(track: Track, onDismiss: () -> Unit, onPlay: (() -> Unit)? 
 @Composable
 fun AlbumActionSheet(album: Album, onDismiss: () -> Unit) {
     val library = LocalContainer.current.library
+    val navigator = LocalNavigator.current
+    val goToArtist = Action(stringResource(R.string.action_go_to_artist), Icons.Outlined.Person) { navigator.showArtist(album.artistId) }
     ActionSheet(
         title = album.name,
         subtitle = listOfNotNull(album.artistName, album.releaseYear?.toString()).joinToString(" · "),
-        groups = queueActions({ library.tracksForAlbum(album.id) }, album.artworkUrl, shuffle = true),
+        groups = queueActions({ library.tracksForAlbum(album.id) }, album.artworkUrl, shuffle = true) + listOf(listOf(goToArtist)),
         onDismiss = onDismiss,
         leading = { Artwork(album.artwork, album.artworkUrl, ArtworkSize.Thumbnail, Modifier.size(48.dp), cornerRadius = 4.dp) },
     )
