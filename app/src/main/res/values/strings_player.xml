@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="playback_error_unauthorized">Your session expired. Sign in again to keep listening.</string>
+    <string name="playback_error_unreachable">Couldn’t reach the server to play this track.</string>
+    <string name="playback_error_unplayable">This track couldn’t be played.</string>
+    <string name="playback_error_other">Playback failed (%1$s).</string>
+    <string name="player_play">Play</string>
+    <string name="player_pause">Pause</string>
+    <string name="player_next">Next</string>
+    <string name="player_previous">Previous</string>
+</resources>

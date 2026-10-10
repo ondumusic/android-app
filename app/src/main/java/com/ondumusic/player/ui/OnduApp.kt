@@ -1,20 +1,15 @@
 package com.ondumusic.player.ui
 
 import androidx.compose.animation.Crossfade
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ondumusic.player.AppContainer
-import com.ondumusic.player.Session
 import com.ondumusic.player.ui.auth.LoginScreen
 import com.ondumusic.player.ui.theme.OnduTheme
 
@@ -42,19 +37,9 @@ fun OnduApp(container: AppContainer) {
                 Stage.Launching -> Surface(Modifier.fillMaxSize()) {}
                 Stage.SignedOut -> LoginScreen(container.auth)
                 Stage.Syncing -> current?.let { SyncProgressScreen(it.sync, container.auth) }
-                Stage.Ready -> current?.let { LibraryPlaceholder(container, it) }
-            }
-        }
-    }
-}
-
-@Composable
-private fun LibraryPlaceholder(container: AppContainer, session: Session) {
-    val artists by container.library.observeArtists().collectAsStateWithLifecycle(emptyList())
-    Surface(Modifier.fillMaxSize()) {
-        Box(Modifier.fillMaxSize()) {
-            LazyColumn(Modifier.fillMaxSize()) {
-                items(artists, key = { it.id }) { ListItem(headlineContent = { Text(it.name) }) }
+                Stage.Ready -> current?.let { session ->
+                    CompositionLocalProvider(LocalContainer provides container, LocalSession provides session) { MainScreen() }
+                }
             }
         }
     }

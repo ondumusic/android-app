@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tab_artists">Artists</string>
+    <string name="tab_albums">Albums</string>
+    <string name="tab_songs">Songs</string>
+    <string name="tab_search">Search</string>
+    <string name="tab_playlists">Playlists</string>
+
+    <string name="no_artists">No Artists</string>
+    <string name="no_albums">No Albums</string>
+    <string name="no_tracks">No Tracks</string>
+    <string name="play_all">Play All</string>
+    <string name="shuffle_all">Shuffle All</string>
+    <string name="disc_number">Disc %1$d</string>
+
+    <string name="menu_account">Account</string>
+    <string name="menu_downloads">Downloads</string>
+    <string name="menu_settings">Settings</string>
+</resources>
