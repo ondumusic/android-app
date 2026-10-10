@@ -56,7 +56,9 @@ terse, no trailing period. Body only for a non-obvious reason, a sentence or two
 
 ## Build & test
 
-The JDK bundled with Android Studio is used; the SDK lives at `~/Library/Android/sdk`.
+Gradle runs on the JDK bundled with Android Studio; compilation and tests use a JDK 21
+toolchain that Gradle downloads itself (Robolectric breaks on 25). The SDK lives at
+`~/Library/Android/sdk`.
 
 ```bash
 export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
