@@ -250,6 +250,11 @@ class DownloadService(
         startNext()
     }
 
+    suspend fun cancel(trackIds: Collection<UUID>) = locked {
+        cancelTracks(trackIds)
+        startNext()
+    }
+
     suspend fun cancelAlbum(albumId: UUID) = locked {
         cancelTracks(tracksMatching { it.albumId == albumId })
         startNext()

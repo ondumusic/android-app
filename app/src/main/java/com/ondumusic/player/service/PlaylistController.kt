@@ -41,6 +41,8 @@ class PlaylistController(
     private val scope: CoroutineScope,
     /** Deletes downloads, cancelling any still queued. */
     private val removeDownloads: suspend (Set<UUID>) -> Unit = { musicLibrary.removeDownloads(it) },
+    /** Cancels downloads that are queued or under way. */
+    private val cancelDownloads: suspend (Set<UUID>) -> Unit = {},
     /** Queues downloads; expected to skip tracks already downloading. */
     private val downloadTracks: suspend (Set<UUID>) -> Unit,
 ) {
@@ -88,6 +90,16 @@ class PlaylistController(
         musicLibrary.setPlaylistAutoDownload(playlistId, false)
         val ids = musicLibrary.tracksForPlaylist(playlistId).map { it.id }.toSet()
         if (ids.isNotEmpty()) removeDownloads(ids)
+    }
+
+    /**
+     * Stops downloading the playlist, keeping what has already downloaded. The flag goes
+     * too: left on, the next sync would queue the cancelled songs all over again.
+     */
+    suspend fun stopDownloading(playlistId: UUID) = perform {
+        musicLibrary.setPlaylistAutoDownload(playlistId, false)
+        val unfinished = musicLibrary.tracksForPlaylist(playlistId).filterNot { it.isDownloaded }.map { it.id }.toSet()
+        if (unfinished.isNotEmpty()) cancelDownloads(unfinished)
     }
 
     // Playlist CRUD

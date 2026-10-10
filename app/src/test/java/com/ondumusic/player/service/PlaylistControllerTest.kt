@@ -221,6 +221,27 @@ class PlaylistControllerTest {
     }
 
     @Test
+    fun stoppingAPlaylistDownloadCancelsWhatIsUnfinishedAndKeepsTheRest() = runTest {
+        val id = UUID.randomUUID()
+        library.insertLocalPlaylist(Playlist(id, "Mix", 0, now))
+        library.setPlaylistAutoDownload(id, true)
+        val have = UUID.randomUUID()
+        val missing = UUID.randomUUID()
+        seedTracks(have, missing)
+        db.openHelper.writableDatabase.execSQL("UPDATE tracks SET isDownloaded = 1 WHERE id = '$have'")
+        listOf(have, missing).forEachIndexed { i, track -> library.insertLocalPlaylistItem(PlaylistItem(UUID.randomUUID(), id, track, "a$i", now)) }
+        val cancelled = mutableListOf<Set<UUID>>()
+        val controller = PlaylistController(library, outbox, prefs, backgroundScope, cancelDownloads = { cancelled += it }) { downloads += it }
+
+        controller.stopDownloading(id)
+
+        assertEquals(listOf(setOf(missing)), cancelled)
+        // Off, so the next sync doesn't queue the cancelled songs again.
+        assertEquals(false, library.playlist(id)!!.autoDownload)
+        assertTrue(library.tracks(listOf(have)).getValue(have).isDownloaded)
+    }
+
+    @Test
     fun enablingAutoDownloadFetchesTheTracksNotYetDownloaded() = runTest {
         val id = UUID.randomUUID()
         library.insertLocalPlaylist(Playlist(id, "Mix", 0, now))

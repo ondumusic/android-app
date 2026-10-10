@@ -85,6 +85,7 @@ class AppContainer(context: Context) {
     val playlists = PlaylistController(
         library, outbox, context.getSharedPreferences("playlists", Context.MODE_PRIVATE), scope,
         removeDownloads = downloads::remove,
+        cancelDownloads = downloads::cancel,
         downloadTracks = downloads::downloadTracks,
     )
 

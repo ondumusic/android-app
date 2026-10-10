@@ -118,14 +118,15 @@ fun PlaylistScreen(id: UUID) {
             }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                 val current = playlist ?: return@DropdownMenu
-                val download = playlistDownloadAction(current)
-                DropdownMenuItem(
-                    text = { Text(download.label, color = if (download.destructive) MaterialTheme.colorScheme.error else Color.Unspecified) },
-                    leadingIcon = {
-                        Icon(download.icon, contentDescription = null, tint = if (download.destructive) MaterialTheme.colorScheme.error else LocalContentColor.current)
-                    },
-                    onClick = { menuOpen = false; download.onClick() },
-                )
+                for (download in playlistDownloadActions(current)) {
+                    DropdownMenuItem(
+                        text = { Text(download.label, color = if (download.destructive) MaterialTheme.colorScheme.error else Color.Unspecified) },
+                        leadingIcon = {
+                            Icon(download.icon, contentDescription = null, tint = if (download.destructive) MaterialTheme.colorScheme.error else LocalContentColor.current)
+                        },
+                        onClick = { menuOpen = false; download.onClick() },
+                    )
+                }
                 HorizontalDivider()
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.playlist_rename)) },

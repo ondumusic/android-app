@@ -27,6 +27,7 @@
     <string name="download_cancel_album_title">Stop downloading?</string>
     <string name="download_cancel_album_message">Stop downloading “%1$s”? Songs already downloaded stay on this device.</string>
     <string name="download_cancel_album_confirm">Stop</string>
+    <string name="download_cancel_playlist_message">Stop downloading “%1$s”? Songs already downloaded stay on this device; songs added to it later won’t download.</string>
     <string name="download_keep_downloading">Keep downloading</string>
     <plurals name="download_songs_of_total">
         <item quantity="one">%1$d of %2$d song downloaded</item>

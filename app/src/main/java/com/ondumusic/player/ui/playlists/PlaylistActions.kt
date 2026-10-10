@@ -14,6 +14,8 @@ import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -142,7 +144,7 @@ fun PlaylistActionSheet(
                 Action(stringResource(R.string.action_play_next), Icons.Outlined.SkipNext) { withQueue { player.playNextQueue(it.withFreshIds()) } },
                 Action(stringResource(R.string.action_add_to_queue), Icons.AutoMirrored.Outlined.QueueMusic) { withQueue { player.addToEndQueue(it.withFreshIds()) } },
             ),
-            listOf(playlistDownloadAction(playlist)),
+            playlistDownloadActions(playlist),
             listOf(rename, Action(stringResource(R.string.playlist_move_to_folder), Icons.AutoMirrored.Outlined.DriveFileMove, onClick = onMove)),
             listOf(Action(stringResource(R.string.playlist_delete), Icons.Outlined.Delete, destructive = true, onClick = onDelete)),
         )
@@ -159,27 +161,41 @@ fun PlaylistActionSheet(
 
 /**
  * Downloading a playlist keeps it downloaded: songs added later, here or on another device,
- * download too, until the download is removed.
+ * download too, until the download is removed or stopped.
  */
 @Composable
-fun playlistDownloadAction(playlist: Playlist): Action {
+fun playlistDownloadActions(playlist: Playlist): List<Action> {
     val container = LocalContainer.current
     val downloadUi = LocalDownloadUi.current
-    return if (playlist.autoDownload) {
-        val title = stringResource(R.string.download_remove_title)
-        val message = stringResource(R.string.download_remove_playlist_message, playlist.name)
-        val confirm = stringResource(R.string.download_remove_confirm)
-        val cancel = stringResource(R.string.cancel)
-        Action(stringResource(R.string.download_remove), Icons.Outlined.Delete, destructive = true) {
-            downloadUi.confirm(Confirmation(title, message, confirm, cancel) {
-                container.scope.launch { container.playlists.disableAutoDownloadAndRemove(playlist.id) }
-            })
-        }
-    } else {
-        Action(stringResource(R.string.download_action), Icons.Outlined.Download) {
+    if (!playlist.autoDownload) {
+        return listOf(Action(stringResource(R.string.download_action), Icons.Outlined.Download) {
             downloadUi.start { container.playlists.enableAutoDownload(playlist.id) }
-        }
+        })
     }
+    val tracks by remember(playlist.id) { container.library.observeTracksForPlaylist(playlist.id) }.collectAsStateWithLifecycle(emptyList())
+    val downloads by container.downloads.state.collectAsStateWithLifecycle()
+    val downloading = tracks.any { downloads.isDownloading(it.id) || downloads.isQueued(it.id) }
+
+    val stop = Confirmation(
+        title = stringResource(R.string.download_cancel_album_title),
+        message = stringResource(R.string.download_cancel_playlist_message, playlist.name),
+        confirmLabel = stringResource(R.string.download_cancel_album_confirm),
+        dismissLabel = stringResource(R.string.download_keep_downloading),
+        onConfirm = { container.scope.launch { container.playlists.stopDownloading(playlist.id) } },
+    )
+    val remove = Confirmation(
+        stringResource(R.string.download_remove_title),
+        stringResource(R.string.download_remove_playlist_message, playlist.name),
+        stringResource(R.string.download_remove_confirm),
+        stringResource(R.string.cancel),
+    ) {
+        container.scope.launch { container.playlists.disableAutoDownloadAndRemove(playlist.id) }
+    }
+    return listOfNotNull(
+        Action(stringResource(R.string.download_cancel), Icons.Outlined.Cancel, destructive = true) { downloadUi.confirm(stop) }
+            .takeIf { downloading },
+        Action(stringResource(R.string.download_remove), Icons.Outlined.Delete, destructive = true) { downloadUi.confirm(remove) },
+    )
 }
 
 private val remappedIds = ConcurrentHashMap<UUID, UUID>()
