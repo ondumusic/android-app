@@ -13,6 +13,7 @@ import androidx.compose.material.icons.outlined.Album
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -23,6 +24,7 @@ import com.ondumusic.player.settings.LibraryFilter
 import com.ondumusic.player.ui.LocalContainer
 import com.ondumusic.player.ui.browse.SortChoice
 import com.ondumusic.player.ui.browse.SortFilterMenu
+import com.ondumusic.player.ui.components.FastScroller
 import com.ondumusic.player.ui.components.AlbumCard
 import com.ondumusic.player.ui.components.EmptyState
 import com.ondumusic.player.ui.components.LibraryRefresh
@@ -118,6 +120,17 @@ fun AlbumsScreen(actions: @Composable () -> Unit) {
                     )
                 }
             }
+            FastScroller(gridState, Modifier.align(Alignment.TopEnd).padding(bottom = padding.calculateBottomPadding())) { index ->
+                shown?.getOrNull(index)?.let { album ->
+                    // Only orders a reader can steer by; a play count or a date says little at a glance.
+                    when (sort) {
+                        AlbumSortOption.Name -> album.name.indexLetter()
+                        AlbumSortOption.Artist -> album.artistName?.indexLetter()
+                        AlbumSortOption.ReleaseYear -> album.releaseYear?.toString()
+                        else -> null
+                    }
+                }
+            }
         }
     }
 }
@@ -147,3 +160,9 @@ private val AlbumSortOption.descendingLabel: Int
         AlbumSortOption.Plays -> R.string.sort_most_played
         AlbumSortOption.LastPlayed -> R.string.sort_most_recent
     }
+
+/** Filed like the artist list: by initial, with anything that doesn't start with a letter under #. */
+private fun String.indexLetter(): String {
+    val first = firstOrNull()?.uppercaseChar()
+    return if (first != null && first.isLetter()) first.toString() else "#"
+}

@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -39,6 +40,8 @@ import com.ondumusic.player.settings.LibraryFilter
 import com.ondumusic.player.ui.LocalContainer
 import com.ondumusic.player.ui.browse.SortChoice
 import com.ondumusic.player.ui.browse.SortFilterMenu
+import com.ondumusic.player.ui.components.FastScroller
+import com.ondumusic.player.ui.components.sectionLabels
 import com.ondumusic.player.ui.components.EmptyState
 import com.ondumusic.player.ui.components.LibraryRefresh
 import com.ondumusic.player.ui.components.ScreenScaffold
@@ -154,6 +157,15 @@ fun SongsScreen(actions: @Composable () -> Unit) {
                     stringResource(if (filter == LibraryFilter.Downloaded) R.string.no_downloaded_songs else R.string.no_songs),
                 )
             }
+            val labels = remember(sections) {
+                // After the play buttons, each section is its header, if it has one, then its songs.
+                var index = 1
+                sectionLabels(sections.orEmpty().mapNotNull { section ->
+                    val start = index
+                    index += (if (section.letter != null) 1 else 0) + section.tracks.size
+                    section.letter?.let { start to it }
+                })
+            }
             LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = padding.calculateBottomPadding())) {
                 if (!sections.isNullOrEmpty()) {
                     item(key = "play-buttons") { PlayButtons(onPlay = { play() }, onShuffle = { play(shuffle = true) }) }
@@ -168,6 +180,7 @@ fun SongsScreen(actions: @Composable () -> Unit) {
                     }
                 }
             }
+            FastScroller(listState, Modifier.align(Alignment.TopEnd).padding(bottom = padding.calculateBottomPadding()), labels)
         }
     }
 }
