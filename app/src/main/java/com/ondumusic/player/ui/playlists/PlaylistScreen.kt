@@ -38,7 +38,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberSwipeToDismissBoxState
+import com.ondumusic.player.ui.components.rememberSwipeToRemoveState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -216,7 +216,7 @@ private fun EntryRow(
     onRemove: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val swipe = rememberSwipeToDismissBoxState()
+    val swipe = rememberSwipeToRemoveState()
     val removeAction = Action(stringResource(R.string.playlist_remove_item), Icons.Outlined.RemoveCircleOutline, destructive = true, onClick = onRemove)
     SwipeToDismissBox(
         state = swipe,

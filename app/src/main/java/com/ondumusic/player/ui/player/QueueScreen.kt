@@ -53,7 +53,7 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.rememberSwipeToDismissBoxState
+import com.ondumusic.player.ui.components.rememberSwipeToRemoveState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -336,7 +336,7 @@ private fun androidx.compose.foundation.lazy.LazyItemScope.UpcomingRow(
     // list can change between composing a row and the user acting on it.
     fun offset() = player.state.value.upNext.indexOfFirst { it.item.id == item.id }
 
-    val dismiss = rememberSwipeToDismissBoxState()
+    val dismiss = rememberSwipeToRemoveState()
     val elevation by animateDpAsState(if (dragging) 6.dp else 0.dp, label = "lift")
     val moveUp = stringResource(R.string.queue_move_up)
     val moveDown = stringResource(R.string.queue_move_down)
