@@ -274,10 +274,12 @@ class DownloadService(
     }
 
     /** Failed downloads stay listed. */
-    suspend fun cancelAll() = locked {
-        isPaused = false
-        pausedForAuth = false
-        cancelTracks(phases.keys + pending.keys)
+    suspend fun cancelAll() {
+        locked {
+            isPaused = false
+            pausedForAuth = false
+            cancelTracks(phases.keys + pending.keys)
+        }
     }
 
     /** Battery Saver only. Low storage is a real limit, not a preference. */
@@ -299,7 +301,9 @@ class DownloadService(
         startNext()
     }
 
-    suspend fun dismissFailure(trackId: UUID) = locked { failed.remove(trackId) }
+    suspend fun dismissFailure(trackId: UUID) {
+        locked { failed.remove(trackId) }
+    }
 
     suspend fun clearFailures() = locked { failed.clear() }
 
