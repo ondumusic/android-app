@@ -27,6 +27,8 @@ import androidx.compose.material.icons.outlined.Shuffle
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -118,6 +120,15 @@ fun PlaylistScreen(id: UUID) {
             }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                 val current = playlist ?: return@DropdownMenu
+                val download = playlistDownloadAction(current)
+                DropdownMenuItem(
+                    text = { Text(download.label, color = if (download.destructive) MaterialTheme.colorScheme.error else Color.Unspecified) },
+                    leadingIcon = {
+                        Icon(download.icon, contentDescription = null, tint = if (download.destructive) MaterialTheme.colorScheme.error else LocalContentColor.current)
+                    },
+                    onClick = { menuOpen = false; download.onClick() },
+                )
+                HorizontalDivider()
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.playlist_rename)) },
                     leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },

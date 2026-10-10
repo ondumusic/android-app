@@ -70,4 +70,5 @@
     <!-- Artists tab filter -->
     <string name="filter">Filter</string>
     <string name="no_downloaded_artists">No Downloaded Artists</string>
+    <string name="download_remove_playlist_message">Remove the downloaded songs of “%1$s” from this device? Songs added to it later won’t download any more.</string>
 </resources>
