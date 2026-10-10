@@ -12,7 +12,8 @@ matches iOS; visuals, navigation idioms and controls follow Android conventions.
 ## Stack
 
 - Compose + Material 3, Navigation 3, Material 3 adaptive (window size classes)
-- Room for the synced library, DataStore for settings, Keystore-backed storage for credentials
+- Room for the synced library; SharedPreferences for settings (read synchronously at
+  startup, like UserDefaults); the session token encrypted with an Android Keystore key
 - Media3 ExoPlayer + `MediaSessionService` for playback, notification and remote controls
 - WorkManager for downloads
 - OkHttp + kotlinx.serialization; okhttp-sse for the transcode prepare stream
