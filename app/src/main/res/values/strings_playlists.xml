@@ -33,6 +33,10 @@
     <string name="playlist_item_removed">Removed from playlist</string>
     <string name="playlist_deleted">Playlist deleted</string>
     <string name="folder_deleted">Folder deleted</string>
+    <plurals name="folder_deleted_with_playlists">
+        <item quantity="one">Folder and %d playlist deleted</item>
+        <item quantity="other">Folder and %d playlists deleted</item>
+    </plurals>
 
     <!-- Move -->
     <string name="playlist_move_title">Move playlist</string>

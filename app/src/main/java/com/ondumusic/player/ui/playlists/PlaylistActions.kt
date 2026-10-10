@@ -17,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.ondumusic.player.AppContainer
@@ -80,15 +81,28 @@ fun rememberRemoveFromPlaylist(): (PlaylistItem) -> Unit {
     return remember(edits, snackbars, message) { { item -> snackbars.offerUndo(edits, edits.removeItem(item), message) } }
 }
 
-/** Deletes a playlist or folder at once, with an Undo snackbar; held back like a removed song. */
+/**
+ * Deletes a playlist or folder at once, with an Undo snackbar; held back like a removed song.
+ * A folder takes everything inside it along, so its snackbar says how many playlists went too.
+ */
 @Composable
 fun rememberDeletePlaylist(): (Playlist) -> Unit {
-    val edits = LocalContainer.current.playlistEdits
+    val container = LocalContainer.current
+    val edits = container.playlistEdits
     val snackbars = LocalSnackbars.current
-    val playlistMessage = stringResource(R.string.playlist_deleted)
-    val folderMessage = stringResource(R.string.folder_deleted)
-    return remember(edits, snackbars, playlistMessage, folderMessage) {
-        { playlist -> snackbars.offerUndo(edits, edits.deletePlaylist(playlist), if (playlist.isFolder) folderMessage else playlistMessage) }
+    val resources = LocalResources.current
+    return remember(container, snackbars, resources) {
+        { playlist ->
+            val token = edits.deletePlaylist(playlist)
+            if (!playlist.isFolder) snackbars.offerUndo(edits, token, resources.getString(R.string.playlist_deleted))
+            else container.scope.launch {
+                val nested = container.library.descendantIds(playlist.id).drop(1)
+                    .count { container.library.playlist(it)?.isFolder == false }
+                val message = if (nested == 0) resources.getString(R.string.folder_deleted)
+                else resources.getQuantityString(R.plurals.folder_deleted_with_playlists, nested, nested)
+                snackbars.offerUndo(edits, token, message)
+            }
+        }
     }
 }
 
