@@ -38,9 +38,17 @@ abstract class LibraryDatabase : RoomDatabase() {
 
         val MIGRATIONS = arrayOf(MIGRATION_1_2)
 
-        fun create(context: Context): LibraryDatabase =
+        /**
+         * [onReset] runs if Room ever falls back to wiping the database. Whatever remembers
+         * how far sync got must forget it then, or the empty library looks fully synced and
+         * deltas never fill it back in.
+         */
+        fun create(context: Context, onReset: () -> Unit): LibraryDatabase =
             Room.databaseBuilder(context, LibraryDatabase::class.java, "library.db")
                 .addMigrations(*MIGRATIONS)
+                .addCallback(object : Callback() {
+                    override fun onDestructiveMigration(db: SupportSQLiteDatabase) = onReset()
+                })
                 // Mostly a cache of the server, but not entirely: queued playlist edits and
                 // download state live only here. Ship real migrations for schema changes; this
                 // is the last resort, matching iOS, which re-syncs and recovers downloads from

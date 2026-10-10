@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -65,7 +66,7 @@ class AppContainer(context: Context) {
 
     val settings = SettingsStore(context.getSharedPreferences("settings", Context.MODE_PRIVATE))
     val auth = AuthService(authPrefs, KeystoreTokenStore(context), http, scope)
-    val library = MusicLibrary(LibraryDatabase.create(context), context.filesDir)
+    val library = MusicLibrary(LibraryDatabase.create(context) { SyncService.clearState(syncPrefs) }, context.filesDir)
     val network = NetworkMonitor(context)
 
     val outbox = OutboxService(library, { auth.api.value }, scope, auth::markSessionExpired)
@@ -145,7 +146,12 @@ class AppContainer(context: Context) {
                 }
             }
         }
-        scope.launch { auth.restoreSession() }
+        scope.launch {
+            // Opened before the session comes back, so a reset that forgets the sync cursor
+            // happens before sync reads it. Still behind the splash screen.
+            withContext(Dispatchers.IO) { library.db.openHelper.writableDatabase }
+            auth.restoreSession()
+        }
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) = onForeground()
