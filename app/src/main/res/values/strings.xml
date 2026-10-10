@@ -52,4 +52,22 @@
     <string name="sync_getting_ready">Getting your library ready</string>
     <string name="sync_first_sync_note">The first sync can take a few minutes.</string>
     <string name="sync_failed">Sync Failed</string>
+
+    <!-- Outbox: why a queued change was dropped -->
+    <string name="outbox_gave_up">A playlist change couldn’t sync: %1$s</string>
+    <string name="outbox_unknown_kind">Unknown mutation kind: %1$s</string>
+    <string name="outbox_malformed_payload">Malformed %1$s payload</string>
+    <string name="outbox_create_playlist_invalid_name">Couldn’t create playlist “%1$s” — the name is invalid.</string>
+    <string name="outbox_create_folder_invalid_name">Couldn’t create folder “%1$s” — the name is invalid.</string>
+    <string name="outbox_rename_invalid_name">Couldn’t rename playlist — the name is invalid.</string>
+    <string name="outbox_move_invalid_destination">Couldn’t move playlist — the destination folder is invalid.</string>
+    <string name="outbox_items_rejected">Some changes were rejected by the server (422).</string>
+    <string name="outbox_filter_retries_exhausted">Gave up after %1$d filter retries.</string>
+    <string name="outbox_unknown_tracks">Some tracks couldn’t be added — server rejected them.</string>
+    <string name="outbox_unknown_items">Some playlist items couldn’t be updated — server rejected them.</string>
+    <string name="outbox_duplicate_items">The same playlist item was changed twice in one request (%1$d).</string>
+    <string name="outbox_move_remove_conflict">A move and remove collided, but we couldn’t identify which.</string>
+    <string name="outbox_invalid_positions">Some playlist positions were rejected by the server.</string>
+    <string name="outbox_playlist_is_folder">That playlist is a folder — items can only be added to playlists.</string>
+    <string name="outbox_too_many_operations">Batch exceeded server op limit — client and server caps have drifted.</string>
 </resources>
