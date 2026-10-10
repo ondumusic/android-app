@@ -28,14 +28,15 @@ enum class StreamingQuality(val raw: String) {
 /**
  * [Wallpaper] is Android's own: Material You's colours taken from the wallpaper, the way the
  * rest of the phone is coloured. The presets match iOS, with [Blue] being the app icon's blue.
- * iOS's free colour picker isn't offered: Android apps follow the wallpaper rather than ask.
+ * iOS's free colour picker isn't offered: Android apps follow the wallpaper rather than ask,
+ * which is also why it's the default here where iOS defaults to blue.
  */
 enum class AccentColor(val raw: String) {
     Wallpaper("wallpaper"), Blue("blue"), Indigo("indigo"), Purple("purple"), Pink("pink"),
     Red("red"), Orange("orange"), Yellow("yellow"), Green("green"), Teal("teal");
 
     companion object {
-        fun fromRaw(raw: String?) = entries.firstOrNull { it.raw == raw } ?: Blue
+        fun fromRaw(raw: String?) = entries.firstOrNull { it.raw == raw } ?: Wallpaper
     }
 }
 

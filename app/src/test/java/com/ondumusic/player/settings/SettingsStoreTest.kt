@@ -36,7 +36,7 @@ class SettingsStoreTest {
         assertEquals(DownloadQuality.Original, s.downloadQuality.value)
         assertEquals(StreamingQuality.Original, s.streamingQuality.value)
         assertTrue(s.artworkTintedPlayer.value)
-        assertEquals(AccentColor.Blue, s.accentColor.value)
+        assertEquals(AccentColor.Wallpaper, s.accentColor.value)
         assertTrue(s.hapticsEnabled.value)
         assertFalse(s.autoDownloadNewTracks.value)
     }
@@ -47,13 +47,13 @@ class SettingsStoreTest {
             volume.value = 0.4f
             repeatMode.value = RepeatMode.All
             downloadQuality.value = DownloadQuality.MobileAac
-            accentColor.value = AccentColor.Wallpaper
+            accentColor.value = AccentColor.Teal
         }
         val reloaded = SettingsStore(prefs)
         assertEquals(0.4f, reloaded.volume.value)
         assertEquals(RepeatMode.All, reloaded.repeatMode.value)
         assertEquals(DownloadQuality.MobileAac, reloaded.downloadQuality.value)
-        assertEquals(AccentColor.Wallpaper, reloaded.accentColor.value)
+        assertEquals(AccentColor.Teal, reloaded.accentColor.value)
     }
 
     @Test
