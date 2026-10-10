@@ -1,15 +1,29 @@
 package com.ondumusic.player
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
+import androidx.annotation.OptIn
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.database.StandaloneDatabaseProvider
+import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
+import androidx.media3.datasource.cache.NoOpCacheEvictor
+import androidx.media3.datasource.cache.SimpleCache
 import com.ondumusic.player.api.ApiClient
 import com.ondumusic.player.auth.AuthService
 import com.ondumusic.player.auth.KeystoreTokenStore
 import com.ondumusic.player.data.LibraryDatabase
 import com.ondumusic.player.data.MusicLibrary
+import com.ondumusic.player.player.ExoPlaybackEngine
+import com.ondumusic.player.player.PlaybackStateStore
+import com.ondumusic.player.player.PlayerService
+import com.ondumusic.player.player.SessionPlayer
+import com.ondumusic.player.service.PlaylistController
 import com.ondumusic.player.service.SyncService
+import com.ondumusic.player.service.outbox.OutboxService
 import com.ondumusic.player.settings.SettingsStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +33,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
+import java.io.File
 import java.util.concurrent.TimeUnit
 
 /** Services that live as long as one signed-in API session. Rebuilt on sign-in and re-auth. */
@@ -30,8 +45,10 @@ class Session(
 /**
  * Builds and owns the app's services. Process-wide ones live as long as the app;
  * [session] is rebuilt whenever the signed-in API client changes, the way the iOS app
- * rebuilds its services when `apiService` changes.
+ * rebuilds its services when `apiService` changes. The player is process-wide on purpose:
+ * re-auth hands it a new token rather than replacing it, which would stop the music.
  */
+@OptIn(UnstableApi::class)
 class AppContainer(context: Context) {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -46,6 +63,35 @@ class AppContainer(context: Context) {
     val auth = AuthService(authPrefs, KeystoreTokenStore(context), http, scope)
     val library = MusicLibrary(LibraryDatabase.create(context), context.filesDir)
 
+    val outbox = OutboxService(library, { auth.api.value }, scope, auth::markSessionExpired)
+
+    val playlists = PlaylistController(
+        library, outbox, context.getSharedPreferences("playlists", Context.MODE_PRIVATE), scope,
+        downloadTracks = { /* Downloads arrive in a later phase. */ },
+    )
+
+    /** Streams cache as they play, up to the size the settings allow, least recently played going first. */
+    private val playbackCache = SimpleCache(
+        File(context.cacheDir, "playback"),
+        settings.playbackCacheLimit.value.let { if (it > 0) LeastRecentlyUsedCacheEvictor(it) else NoOpCacheEvictor() },
+        StandaloneDatabaseProvider(context),
+    )
+
+    private val engine = ExoPlaybackEngine(context, playbackCache) { auth.api.value?.sessionToken }
+
+    val player = PlayerService(
+        engine, settings, library,
+        PlaybackStateStore(File(context.filesDir, "playback-state.json"), context.getSharedPreferences("playback", Context.MODE_PRIVATE), scope),
+        scope,
+        PlayerService.Hooks(
+            baseUrl = { auth.api.value?.baseUrl },
+            recordPlay = { trackId, playedAt -> scope.launch { outbox.enqueuePlay(trackId, playedAt) } },
+            onUnauthorized = auth::markSessionExpired,
+        ),
+    )
+
+    val sessionPlayer = SessionPlayer(player, engine, scope)
+
     private val _session = MutableStateFlow<Session?>(null)
     val session: StateFlow<Session?> = _session.asStateFlow()
 
@@ -56,11 +102,14 @@ class AppContainer(context: Context) {
                 if (api != null) {
                     _session.value = makeSession(api)
                     hadSession = true
+                    outbox.drainSoon()
                 } else {
                     _session.value = null
                     // Signing out discards this account's data on purpose; a fresh launch with
                     // nobody signed in has nothing to discard.
                     if (hadSession) {
+                        player.stopAndClear()
+                        player.clearPersistedState()
                         SyncService.clearState(syncPrefs)
                         library.clearAll(includingDownloads = true)
                     }
@@ -72,13 +121,23 @@ class AppContainer(context: Context) {
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) = onForeground()
+            override fun onStop(owner: LifecycleOwner) = player.savePlaybackPosition()
         })
+
+        context.getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(
+            object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) = outbox.drainSoon()
+            }
+        )
     }
 
     private fun makeSession(api: ApiClient): Session {
         val sync = SyncService(
             api, library, settings, syncPrefs, scope,
-            SyncService.Hooks(onUnauthorized = auth::markSessionExpired),
+            SyncService.Hooks(
+                flushOutbox = outbox::flush,
+                onUnauthorized = auth::markSessionExpired,
+            ),
         )
         return Session(api, sync)
     }
@@ -93,7 +152,8 @@ class AppContainer(context: Context) {
                 auth.validateSession()
             }
         }
-        if (session != null && auth.isRestoringSession.value.not()) {
+        outbox.drainSoon()
+        if (session != null && !auth.isRestoringSession.value) {
             scope.launch { session.sync.syncIfNeeded() }
         }
     }
