@@ -2,9 +2,13 @@ package com.ondumusic.player.settings
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.ondumusic.player.model.AlbumSortOption
 import com.ondumusic.player.model.RepeatMode
+import com.ondumusic.player.model.TrackSort
+import com.ondumusic.player.model.TrackSortColumn
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -65,5 +69,24 @@ class SettingsStoreTest {
         val s = SettingsStore(prefs)
         assertEquals(RepeatMode.Off, s.repeatMode.value)
         assertEquals(DownloadQuality.Original, s.downloadQuality.value)
+    }
+
+    @Test
+    fun browseDefaultsAreTheWholeLibraryInItsOwnOrder() {
+        val s = SettingsStore(prefs)
+        assertEquals(LibraryFilter.All, s.libraryFilter.value)
+        assertEquals(AlbumSortOption.Artist, s.albumListSort.value)
+        assertTrue(s.albumListSortAscending.value)
+        assertNull(s.songListSort.value)
+    }
+
+    @Test
+    fun songSortRoundTripsAndClears() {
+        val sort = TrackSort(TrackSortColumn.Plays, ascending = false)
+        SettingsStore(prefs).songListSort.value = sort
+        assertEquals(sort, SettingsStore(prefs).songListSort.value)
+
+        SettingsStore(prefs).songListSort.value = null
+        assertNull(SettingsStore(prefs).songListSort.value)
     }
 }

@@ -2,7 +2,9 @@ package com.ondumusic.player.settings
 
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import com.ondumusic.player.model.AlbumSortOption
 import com.ondumusic.player.model.RepeatMode
+import com.ondumusic.player.model.TrackSort
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,6 +36,15 @@ enum class AccentColor(val raw: String) {
 
     companion object {
         fun fromRaw(raw: String?) = entries.firstOrNull { it.raw == raw } ?: Blue
+    }
+}
+
+/** Whether the album and song lists show the whole library or only what's on the device. Shared by both, as on iOS. */
+enum class LibraryFilter(val raw: String) {
+    All("all"), Downloaded("downloaded");
+
+    companion object {
+        fun fromRaw(raw: String?) = entries.firstOrNull { it.raw == raw } ?: All
     }
 }
 
@@ -112,4 +123,17 @@ class SettingsStore(private val prefs: SharedPreferences) {
     val hapticsEnabled = bool("hapticsEnabled", true)
 
     val autoDownloadNewTracks = bool("autoDownloadNewTracks", false)
+
+    val libraryFilter = enum("libraryFilter", LibraryFilter::fromRaw) { it.raw }
+
+    val albumListSort = enum("albumListSort", { raw -> AlbumSortOption.entries.firstOrNull { it.name == raw } ?: AlbumSortOption.Artist }) { it.name }
+
+    val albumListSortAscending = bool("albumListSortAscending", true)
+
+    /** Null is the library's own order; see [TrackSort]. */
+    val songListSort = Setting<TrackSort?>(
+        "songListSort",
+        { getString(it, null)?.let(TrackSort::fromRawValue) },
+        { k, v -> if (v == null) remove(k) else putString(k, v.rawValue) },
+    )
 }
