@@ -119,12 +119,19 @@ class SyncService(
             return
         }
         if (!running.compareAndSet(false, true)) return
+        // From the start, not from the first page: the compatibility check and the outbox
+        // flush are part of what someone pulling to refresh is waiting on.
+        _isShowingActivity.value = true
+        var synced = false
         try {
             checkCompatibilityIfNeeded()
             hooks.flushOutbox()
+            synced = true
             runSync()
         } finally {
             running.set(false)
+            // runSync clears it on its own schedule; if it never got that far, nothing else will.
+            if (!synced) _isShowingActivity.value = false
         }
     }
 
