@@ -1,0 +1,17 @@
+# Gradle and build output
+.gradle/
+.kotlin/
+build/
+
+# Per-machine: SDK location, signing keys
+local.properties
+*.jks
+*.keystore
+
+# Android Studio per-user state
+.idea/
+*.iml
+captures/
+
+# macOS
+.DS_Store
