@@ -7,16 +7,16 @@
     <string name="settings_crossfade">Crossfade</string>
     <string name="settings_seconds">%1$ds</string>
     <string name="settings_crossfade_footer">Blend each song into the next. Albums that play continuously stay gapless.</string>
-    <string name="settings_normalize">Normalize Volume</string>
+    <string name="settings_normalize">Normalize volume</string>
     <string name="settings_normalize_footer">Play songs at a similar loudness. Only ever turns music down, and albums keep their own dynamics.</string>
-    <string name="settings_record_plays">Record Plays</string>
+    <string name="settings_record_plays">Record plays</string>
     <string name="settings_record_plays_footer">Tell your server what you listen to, so play counts include this device.</string>
 
     <string name="settings_appearance">Appearance</string>
-    <string name="settings_tinted_player">Artwork-Tinted Player</string>
+    <string name="settings_tinted_player">Artwork-tinted player</string>
     <string name="settings_tinted_player_footer">Color the player with the album artwork.</string>
-    <string name="settings_haptics">Haptic Feedback</string>
-    <string name="settings_accent">Accent Color</string>
+    <string name="settings_haptics">Haptic feedback</string>
+    <string name="settings_accent">Accent color</string>
     <string name="accent_blue">Blue</string>
     <string name="accent_indigo">Indigo</string>
     <string name="accent_purple">Purple</string>
@@ -28,40 +28,40 @@
     <string name="accent_teal">Teal</string>
     <string name="accent_wallpaper">Wallpaper colors</string>
 
-    <string name="settings_cache">Playback Cache</string>
-    <string name="settings_cache_limit">Cache Limit</string>
+    <string name="settings_cache">Playback cache</string>
+    <string name="settings_cache_limit">Cache limit</string>
     <string name="settings_unlimited">Unlimited</string>
-    <string name="settings_cache_size">Cache Size</string>
-    <string name="settings_clear_cache">Clear Cache</string>
-    <string name="settings_clear_cache_title">Clear Playback Cache?</string>
+    <string name="settings_cache_size">Cache size</string>
+    <string name="settings_clear_cache">Clear cache</string>
+    <string name="settings_clear_cache_title">Clear playback cache?</string>
     <string name="settings_clear_cache_message">This will remove %1$s of cached audio. Tracks will be re-streamed on next play.</string>
     <string name="settings_cache_footer">Recently played tracks are cached locally to avoid re-streaming. Set a limit or choose Unlimited.</string>
 
     <string name="settings_quality">Quality</string>
-    <string name="settings_streaming_quality">Streaming Quality</string>
-    <string name="settings_download_quality">Download Quality</string>
+    <string name="settings_streaming_quality">Streaming quality</string>
+    <string name="settings_download_quality">Download quality</string>
     <string name="settings_streaming_quality_description">Used when playing from the server. Lower quality saves data on mobile networks.</string>
     <string name="settings_download_quality_description">Applies to new downloads. Songs already downloaded keep their quality.</string>
     <string name="quality_original">Original</string>
     <string name="quality_default">Default (256 kbps)</string>
     <string name="quality_mobile">Mobile (128 kbps)</string>
 
-    <string name="settings_concurrent_downloads">Concurrent Downloads</string>
-    <string name="settings_auto_download">Auto-Download New Tracks</string>
+    <string name="settings_concurrent_downloads">Concurrent downloads</string>
+    <string name="settings_auto_download">Auto-download new tracks</string>
     <string name="settings_auto_download_footer">Download songs newly added to your server after each sync.</string>
 
     <string name="settings_library">Library</string>
-    <string name="settings_last_synced">Last Synced</string>
+    <string name="settings_last_synced">Last synced</string>
     <string name="settings_never">Never</string>
-    <string name="settings_sync_now">Sync Now</string>
-    <string name="settings_rebuild">Rebuild Library</string>
-    <string name="settings_rebuild_title">Rebuild Library?</string>
+    <string name="settings_sync_now">Sync now</string>
+    <string name="settings_rebuild">Rebuild library</string>
+    <string name="settings_rebuild_title">Rebuild library?</string>
     <string name="settings_rebuild_message">Downloads your whole library again from the server. Downloaded music and playlists are kept.</string>
     <string name="settings_rebuild_confirm">Rebuild</string>
 
     <string name="settings_account">Account</string>
     <string name="settings_signed_in_as">Signed in as</string>
-    <string name="settings_server_version">Server Version</string>
-    <string name="sign_out_title">Sign Out?</string>
+    <string name="settings_server_version">Server version</string>
+    <string name="sign_out_title">Sign out?</string>
     <string name="sign_out_message">This will remove all offline data including downloads, cached artwork, and your synced library from this device.</string>
 </resources>

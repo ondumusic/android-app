@@ -18,7 +18,7 @@
     <string name="error_stored_sign_in_unreadable">Couldn’t read your saved sign-in. Enter your password to continue.</string>
 
     <!-- Common -->
-    <string name="sign_out">Sign Out</string>
+    <string name="sign_out">Sign out</string>
     <string name="retry">Retry</string>
     <string name="undo">Undo</string>
     <plurals name="artist_count">
@@ -45,14 +45,14 @@
     <string name="login_password">Password</string>
     <string name="login_show_password">Show password</string>
     <string name="login_hide_password">Hide password</string>
-    <string name="login_sign_in">Sign In</string>
+    <string name="login_sign_in">Sign in</string>
     <string name="login_no_server">Don’t have a server?</string>
     <string name="login_https_required">Your server must use https. Sign-in details and your music would otherwise travel unencrypted.</string>
 
     <!-- Initial sync -->
     <string name="sync_getting_ready">Getting your library ready</string>
     <string name="sync_first_sync_note">The first sync can take a few minutes.</string>
-    <string name="sync_failed">Sync Failed</string>
+    <string name="sync_failed">Sync failed</string>
 
     <!-- Outbox: why a queued change was dropped -->
     <string name="outbox_gave_up">A playlist change couldn’t sync: %1$s</string>

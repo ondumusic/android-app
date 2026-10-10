@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="artwork_choose_photo">Choose Photo…</string>
-    <string name="artwork_replace_photo">Replace Photo…</string>
-    <string name="artwork_choose_file">Choose File…</string>
-    <string name="artwork_remove_photo">Remove Photo</string>
-    <string name="artwork_failed_title">Couldn’t Update Artwork</string>
+    <string name="artwork_choose_photo">Choose photo…</string>
+    <string name="artwork_replace_photo">Replace photo…</string>
+    <string name="artwork_choose_file">Choose file…</string>
+    <string name="artwork_remove_photo">Remove photo</string>
+    <string name="artwork_failed_title">Couldn’t update artwork</string>
     <string name="artwork_not_signed_in">Not signed in.</string>
     <string name="artwork_not_an_image">That file isn’t an image Ondu can read.</string>
     <string name="artwork_too_large">That image is too large for the server to accept.</string>
     <string name="artwork_failed">Couldn’t update the artwork. %1$s</string>
-    <string name="artwork_choose_another">Choose Another…</string>
+    <string name="artwork_choose_another">Choose another…</string>
 </resources>

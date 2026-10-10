@@ -16,18 +16,18 @@
 
     <!-- Download actions in menus and the album header -->
     <string name="download_action">Download</string>
-    <string name="download_pause">Pause Download</string>
-    <string name="download_resume">Resume Download</string>
-    <string name="download_cancel">Cancel Download</string>
-    <string name="download_remove">Remove Download</string>
-    <string name="download_remove_title">Remove Download?</string>
+    <string name="download_pause">Pause download</string>
+    <string name="download_resume">Resume download</string>
+    <string name="download_cancel">Cancel download</string>
+    <string name="download_remove">Remove download</string>
+    <string name="download_remove_title">Remove download?</string>
     <string name="download_remove_album_message">Remove the downloaded songs of “%1$s” from this device? The album stays in your library and can be downloaded again.</string>
     <string name="download_remove_artist_message">Remove all downloaded music by %1$s from this device? The artist stays in your library and can be downloaded again.</string>
     <string name="download_remove_confirm">Remove</string>
-    <string name="download_cancel_album_title">Stop Downloading?</string>
+    <string name="download_cancel_album_title">Stop downloading?</string>
     <string name="download_cancel_album_message">Stop downloading “%1$s”? Songs already downloaded stay on this device.</string>
     <string name="download_cancel_album_confirm">Stop</string>
-    <string name="download_keep_downloading">Keep Downloading</string>
+    <string name="download_keep_downloading">Keep downloading</string>
     <plurals name="download_songs_of_total">
         <item quantity="one">%1$d of %2$d song downloaded</item>
         <item quantity="other">%1$d of %2$d songs downloaded</item>
@@ -38,11 +38,11 @@
     <string name="downloads_section_downloading">Downloading</string>
     <string name="downloads_section_failed">Failed</string>
     <string name="downloads_section_library">Library</string>
-    <string name="downloads_pause_all">Pause All</string>
-    <string name="downloads_resume_all">Resume All</string>
-    <string name="downloads_cancel_all">Cancel All</string>
-    <string name="downloads_retry_all">Retry All</string>
-    <string name="downloads_clear_all">Clear All</string>
+    <string name="downloads_pause_all">Pause all</string>
+    <string name="downloads_resume_all">Resume all</string>
+    <string name="downloads_cancel_all">Cancel all</string>
+    <string name="downloads_retry_all">Retry all</string>
+    <string name="downloads_clear_all">Clear all</string>
     <string name="downloads_paused_item">Paused · %1$s</string>
     <plurals name="downloads_waiting">
         <item quantity="one">%d song waiting</item>
@@ -52,23 +52,23 @@
         <item quantity="one">and %d more</item>
         <item quantity="other">and %d more</item>
     </plurals>
-    <string name="downloads_empty_title">No Downloads</string>
+    <string name="downloads_empty_title">No downloads</string>
     <string name="downloads_empty_message">Downloaded music will appear here.</string>
-    <string name="downloads_download_all">Download All</string>
-    <string name="downloads_download_all_title">Download All Songs?</string>
+    <string name="downloads_download_all">Download all</string>
+    <string name="downloads_download_all_title">Download all songs?</string>
     <string name="downloads_download_all_message">This will download your entire music library for offline playback.</string>
-    <string name="downloads_remove_all">Remove All Downloads</string>
-    <string name="downloads_remove_all_title">Remove All Downloads?</string>
+    <string name="downloads_remove_all">Remove all downloads</string>
+    <string name="downloads_remove_all_title">Remove all downloads?</string>
     <string name="downloads_remove_all_message">This will remove all downloaded music from this device.</string>
-    <string name="downloads_remove_all_confirm">Remove All</string>
+    <string name="downloads_remove_all_confirm">Remove all</string>
 
     <!-- Why downloads aren't starting -->
     <string name="downloads_paused_battery_saver">Downloads paused — Battery Saver is on</string>
     <string name="downloads_paused_low_storage">Downloads paused — this device is low on storage</string>
-    <string name="downloads_download_anyway">Download Anyway</string>
+    <string name="downloads_download_anyway">Download anyway</string>
 
     <!-- Artists tab filter -->
     <string name="filter">Filter</string>
-    <string name="no_downloaded_artists">No Downloaded Artists</string>
+    <string name="no_downloaded_artists">No downloaded artists</string>
     <string name="download_remove_playlist_message">Remove the downloaded songs of “%1$s” from this device? Songs added to it later won’t download any more.</string>
 </resources>

@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="banner_session_expired">Session expired</string>
-    <string name="banner_reauthenticate">Sign In</string>
+    <string name="banner_reauthenticate">Sign in</string>
     <string name="banner_dismiss">Dismiss</string>
     <string name="notice_library_unavailable">Your server can’t reach its music folder, so the library may be incomplete.</string>
     <string name="compat_app_too_old">Ondu is out of date — your server (%1$s) needs a newer version of the app.</string>
     <string name="compat_server_too_old">Your server is out of date — Ondu needs a newer server than %1$s.</string>
-    <string name="reauth_title">Session Expired</string>
+    <string name="reauth_title">Session expired</string>
     <string name="reauth_message">Enter the password for %1$s to keep going.</string>
 </resources>
