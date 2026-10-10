@@ -224,7 +224,7 @@ fun MainScreen() {
             }
 
             PlayerFeedback()
-            MainSnackbarHost(Modifier.align(Alignment.BottomCenter).playerSnackbarPadding(showFullPlayer && hasMiniPlayer, hasMiniPlayer))
+            MainSnackbarHost(Modifier.align(Alignment.BottomCenter).playerSnackbarPadding(showFullPlayer && hasMiniPlayer, hasMiniPlayer, navigationLayout()))
             PlaylistSyncErrorDialog()
         }
         addToPlaylist?.let { ids -> AddToPlaylistSheet(ids, onDismiss = { addToPlaylist = null }) }

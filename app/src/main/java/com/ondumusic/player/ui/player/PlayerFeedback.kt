@@ -3,8 +3,6 @@ package com.ondumusic.player.ui.player
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -56,10 +54,9 @@ fun PlayerFeedback() {
  * content at the bottom of the window. Over the full player only the system bar is in the way.
  */
 @Composable
-fun Modifier.playerSnackbarPadding(fullPlayerShowing: Boolean, hasMiniPlayer: Boolean): Modifier {
+fun Modifier.playerSnackbarPadding(fullPlayerShowing: Boolean, hasMiniPlayer: Boolean, navigation: NavigationSuiteType): Modifier {
     val systemBar = with(LocalDensity.current) { WindowInsets.navigationBars.getBottom(this).toDp() }
     if (fullPlayerShowing) return padding(bottom = systemBar)
-    val navigation = NavigationSuiteScaffoldDefaults.calculateFromAdaptiveInfo(currentWindowAdaptiveInfo())
     val navigationBar = if (navigation == NavigationSuiteType.NavigationBar) NavigationBarHeight else 0.dp
     return padding(bottom = systemBar + navigationBar + if (hasMiniPlayer) MiniPlayerHeight else 0.dp)
 }
