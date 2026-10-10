@@ -7,6 +7,7 @@ import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -40,6 +41,8 @@ fun AlbumDownloadButton(album: Album, modifier: Modifier = Modifier) {
                 progress = { albumDownloadFraction(current, state, progress, album.id) },
                 modifier = Modifier.size(20.dp),
                 strokeWidth = 2.5.dp,
+                // The default track matches the tonal button, which hides a download that hasn't begun.
+                trackColor = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.2f),
             )
         }
         current.isFull -> FilledTonalIconButton(onClick = { ui.confirm(confirmRemove { ui.perform { removeAlbum(album.id) } }) }, modifier) {

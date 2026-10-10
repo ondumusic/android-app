@@ -24,9 +24,9 @@
     <string name="download_remove_album_message">Remove the downloaded songs of “%1$s” from this device? The album stays in your library and can be downloaded again.</string>
     <string name="download_remove_artist_message">Remove all downloaded music by %1$s from this device? The artist stays in your library and can be downloaded again.</string>
     <string name="download_remove_confirm">Remove</string>
-    <string name="download_cancel_album_title">Cancel Downloads?</string>
+    <string name="download_cancel_album_title">Stop Downloading?</string>
     <string name="download_cancel_album_message">Stop downloading “%1$s”? Songs already downloaded stay on this device.</string>
-    <string name="download_cancel_album_confirm">Cancel Downloads</string>
+    <string name="download_cancel_album_confirm">Stop</string>
     <string name="download_keep_downloading">Keep Downloading</string>
     <plurals name="download_songs_of_total">
         <item quantity="one">%1$d of %2$d song downloaded</item>
