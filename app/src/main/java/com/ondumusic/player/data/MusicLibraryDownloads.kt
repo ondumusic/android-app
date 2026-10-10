@@ -39,6 +39,9 @@ fun MusicLibrary.observeDownloadedTrackIds(): Flow<Set<UUID>> = db.tracks().obse
 
 suspend fun MusicLibrary.downloadedTrackIds(): Set<UUID> = db.tracks().downloadedIds().toHashSet()
 
+/** By the flag alone; [MusicLibrary.downloadedFile] also checks the file is there. */
+suspend fun MusicLibrary.isDownloaded(trackId: UUID): Boolean = db.tracks().downloadedFilePath(trackId) != null
+
 /** Artists with downloads, sorted by sort name, with the total size of everything downloaded. */
 fun MusicLibrary.observeDownloadSummary(): Flow<DownloadSummary> =
     db.tracks().observeDownloadedArtists().map { rows ->

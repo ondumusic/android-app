@@ -30,6 +30,8 @@ object ErrorMessages {
         else -> fallback(error)
     }
 
+    fun download(error: Throwable): UiText = connection(error) ?: fallback(error)
+
     private fun connection(error: Throwable): UiText? = when (error) {
         is UnknownHostException -> UiText.Res(R.string.error_cannot_find_host)
         is ConnectException, is SocketTimeoutException, is NoRouteToHostException ->
