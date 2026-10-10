@@ -43,7 +43,7 @@ import java.util.UUID
 class MusicLibrary(
     internal val db: LibraryDatabase,
     /** Root that stored download paths are relative to. */
-    private val filesDir: File,
+    internal val filesDir: File,
 ) {
     private val _playlistIdRemapped = MutableSharedFlow<Pair<UUID, UUID>>(extraBufferCapacity = 16)
 
@@ -67,7 +67,7 @@ class MusicLibrary(
         })
     }
 
-    private fun invalidateTracks() {
+    internal fun invalidateTracks() {
         tracksGeneration.incrementAndGet()
         cachedAllTracks = null
     }
@@ -303,6 +303,8 @@ class MusicLibrary(
             db.playlistItems().clear()
             db.playlists().clear()
             db.pendingMutations().clear()
+            // A rebuild keeps the queue: its rows name tracks that are about to come back.
+            if (includingDownloads) db.downloadQueue().clear()
         }
         invalidateTracks()
     }

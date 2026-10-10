@@ -34,6 +34,30 @@ data class AlbumRow(
     val artistSortName: String?,
 )
 
+data class DownloadedPathRow(
+    val id: UUID,
+    val localFilePath: String?,
+)
+
+data class DownloadedAlbumRow(
+    @Embedded val album: AlbumRow,
+    val downloadedCount: Int,
+    val downloadedSize: Long,
+)
+
+data class DownloadedArtistRow(
+    @Embedded val artist: ArtistEntity,
+    val downloadedAlbumCount: Int,
+    val downloadedSize: Long,
+)
+
+/** How much of an album or artist is on the device. */
+data class DownloadCount(val downloaded: Int, val total: Int) {
+    val isAny: Boolean get() = downloaded > 0
+    val isFull: Boolean get() = total > 0 && downloaded == total
+    val isPartial: Boolean get() = downloaded in 1 until total
+}
+
 data class AlbumPlayStatsRow(
     val albumId: UUID,
     val playCount: Int,
@@ -168,6 +192,64 @@ interface TrackDao {
 
     @Query("SELECT localFilePath FROM tracks WHERE (albumId = :albumId) AND localFilePath IS NOT NULL")
     suspend fun localFilePathsForAlbum(albumId: UUID): List<String>
+
+    // Download state
+
+    /** Returns the rows updated: none when the track has left the library. */
+    @Query("UPDATE tracks SET isDownloaded = 1, localFilePath = :path, downloadedFileSize = :size WHERE id = :id")
+    suspend fun markDownloaded(id: UUID, path: String, size: Long): Int
+
+    @Query("UPDATE tracks SET isDownloaded = 0, localFilePath = NULL, downloadedFileSize = 0 WHERE id IN (:ids)")
+    suspend fun markNotDownloaded(ids: List<UUID>)
+
+    @Query("SELECT id FROM tracks WHERE isDownloaded = 1")
+    suspend fun downloadedIds(): List<UUID>
+
+    @Query("SELECT id FROM tracks WHERE isDownloaded = 1")
+    fun observeDownloadedIds(): Flow<List<UUID>>
+
+    @Query("SELECT id, localFilePath FROM tracks WHERE isDownloaded = 1")
+    suspend fun downloadedPaths(): List<DownloadedPathRow>
+
+    @Query("SELECT id, localFilePath FROM tracks WHERE isDownloaded = 1 AND id IN (:ids)")
+    suspend fun downloadedPaths(ids: List<UUID>): List<DownloadedPathRow>
+
+    @Query("SELECT id, localFilePath FROM tracks WHERE isDownloaded = 1 AND albumId = :albumId")
+    suspend fun downloadedPathsForAlbum(albumId: UUID): List<DownloadedPathRow>
+
+    @Query("SELECT id, localFilePath FROM tracks WHERE isDownloaded = 1 AND albumArtistId = :artistId")
+    suspend fun downloadedPathsForAlbumArtist(artistId: UUID): List<DownloadedPathRow>
+
+    @Query("SELECT id FROM tracks WHERE id IN (:ids)")
+    suspend fun existingIds(ids: List<UUID>): List<UUID>
+
+    @Query("SELECT COUNT(*) AS total, IFNULL(SUM(isDownloaded), 0) AS downloaded FROM tracks WHERE albumId = :albumId")
+    fun observeAlbumDownloadCount(albumId: UUID): Flow<DownloadCount>
+
+    @Query("SELECT COUNT(*) AS total, IFNULL(SUM(isDownloaded), 0) AS downloaded FROM tracks WHERE albumArtistId = :artistId")
+    fun observeArtistDownloadCount(artistId: UUID): Flow<DownloadCount>
+
+    /** Albums with something downloaded, in one pass: the Downloads list needs the count and size on every row. */
+    @Query("""
+        SELECT al.*, ar.name AS artistName, ar.sortName AS artistSortName,
+            COUNT(t.id) AS downloadedCount, SUM(t.downloadedFileSize) AS downloadedSize
+        FROM tracks t
+        JOIN albums al ON al.id = t.albumId
+        LEFT JOIN artists ar ON ar.id = al.artistId
+        WHERE t.isDownloaded = 1
+        GROUP BY al.id
+    """)
+    fun observeDownloadedAlbums(): Flow<List<DownloadedAlbumRow>>
+
+    /** Album artists with something downloaded, counting only the albums and bytes actually on disk. */
+    @Query("""
+        SELECT ar.*, COUNT(DISTINCT t.albumId) AS downloadedAlbumCount, SUM(t.downloadedFileSize) AS downloadedSize
+        FROM tracks t
+        JOIN artists ar ON ar.id = t.albumArtistId
+        WHERE t.isDownloaded = 1
+        GROUP BY ar.id
+    """)
+    fun observeDownloadedArtists(): Flow<List<DownloadedArtistRow>>
 
     @Query("UPDATE tracks SET playCount = playCount + 1, lastPlayedAt = :at WHERE id = :id")
     suspend fun recordPlay(id: UUID, at: Instant)
@@ -309,5 +391,23 @@ interface PendingMutationDao {
     suspend fun delete(localIds: List<UUID>)
 
     @Query("DELETE FROM pending_mutations")
+    suspend fun clear()
+}
+
+@Dao
+interface DownloadQueueDao {
+    @Query("SELECT * FROM download_queue ORDER BY enqueuedAt, rowid")
+    suspend fun all(): List<DownloadQueueEntity>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(rows: List<DownloadQueueEntity>)
+
+    @Query("UPDATE download_queue SET paused = :paused WHERE trackId IN (:trackIds)")
+    suspend fun setPaused(trackIds: List<UUID>, paused: Boolean)
+
+    @Query("DELETE FROM download_queue WHERE trackId IN (:trackIds)")
+    suspend fun delete(trackIds: List<UUID>)
+
+    @Query("DELETE FROM download_queue")
     suspend fun clear()
 }

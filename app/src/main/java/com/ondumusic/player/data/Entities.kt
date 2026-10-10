@@ -149,3 +149,17 @@ data class TrackRow(
     val albumArtworkUrl: String?,
     val albumReleaseYear: Int?,
 )
+
+/**
+ * A track waiting to download, downloading, or paused part-way, kept so the queue
+ * survives the process being killed. A failed download leaves the table: the failure
+ * list lasts the session, as on iOS.
+ */
+@Entity(tableName = "download_queue")
+data class DownloadQueueEntity(
+    @PrimaryKey val trackId: UUID,
+    /** Epoch millis. Rows from one batch share it and keep their order through the rowid. */
+    val enqueuedAt: Long,
+    /** Paused individually by the user, so a restored queue leaves it paused. */
+    @ColumnInfo(defaultValue = "0") val paused: Boolean = false,
+)
