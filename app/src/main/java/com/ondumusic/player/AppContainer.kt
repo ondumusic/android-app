@@ -24,6 +24,7 @@ import com.ondumusic.player.service.NetworkMonitor
 import com.ondumusic.player.service.PlaylistController
 import com.ondumusic.player.service.SyncService
 import com.ondumusic.player.service.downloads.DownloadService
+import com.ondumusic.player.service.downloads.DownloadWorker
 import com.ondumusic.player.service.downloads.SystemDownloadConditions
 import com.ondumusic.player.service.outbox.OutboxService
 import com.ondumusic.player.settings.SettingsStore
@@ -72,7 +73,10 @@ class AppContainer(context: Context) {
     // Downloads
     val downloads = DownloadService(
         library, settings, http, auth.api, network.isOnline, SystemDownloadConditions(context), scope,
-        DownloadService.Hooks(onUnauthorized = auth::markSessionExpired),
+        DownloadService.Hooks(
+            onUnauthorized = auth::markSessionExpired,
+            onStarted = { DownloadWorker.enqueue(appContext) },
+        ),
     )
 
     val playlists = PlaylistController(
