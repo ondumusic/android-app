@@ -25,14 +25,18 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ondumusic.player.R
+import com.ondumusic.player.model.Playlist
 import com.ondumusic.player.ui.LocalContainer
+import com.ondumusic.player.ui.components.LocalSnackbars
 import com.ondumusic.player.ui.components.clickableRow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -54,9 +58,9 @@ fun AddToPlaylistSheet(trackIds: List<UUID>, onDismiss: () -> Unit) {
     fun close() {
         scope.launch { state.hide() }.invokeOnCompletion { onDismiss() }
     }
-    // The sheet closes as the add starts, so the work can't live in its scope.
-    fun addTo(playlistId: UUID) {
-        container.scope.launch { playlists.addTracks(trackIds, playlistId) }
+    val add = rememberAddToPlaylist()
+    fun addTo(playlist: Playlist) {
+        add(trackIds, playlist)
         close()
     }
 
@@ -99,7 +103,7 @@ fun AddToPlaylistSheet(trackIds: List<UUID>, onDismiss: () -> Unit) {
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        modifier = Modifier.clickableRow { addTo(target.playlist.id) },
+                        modifier = Modifier.clickableRow { addTo(target.playlist) },
                     )
                 }
             }
@@ -111,11 +115,35 @@ fun AddToPlaylistSheet(trackIds: List<UUID>, onDismiss: () -> Unit) {
             NameDialogMode.CreatePlaylist,
             onDismiss = { creating = false },
             onSave = { name ->
-                container.scope.launch {
-                    playlists.createPlaylist(name)?.let { playlists.addTracks(trackIds, it.id) }
-                }
+                container.scope.launch { playlists.createPlaylist(name)?.let { add(trackIds, it) } }
                 close()
             },
         )
+    }
+}
+
+/**
+ * Adds tracks to a playlist and says so, with Undo: the playlist isn't on screen, so
+ * without the snackbar an add from a menu looks like nothing happened. The work runs in
+ * the app's scope, since the sheet or menu that asked is gone by then.
+ */
+@Composable
+fun rememberAddToPlaylist(): (List<UUID>, Playlist) -> Unit {
+    val container = LocalContainer.current
+    val snackbars = LocalSnackbars.current
+    val resources = LocalResources.current
+    return remember(container, snackbars, resources) {
+        { trackIds, playlist ->
+            container.scope.launch {
+                val added = container.playlists.addTracks(trackIds, playlist.id)
+                if (added.isEmpty()) return@launch
+                snackbars.showUndo(
+                    resources.getQuantityString(R.plurals.playlist_added_to, added.size, added.size, playlist.name),
+                    // Undoable for as long as the snackbar shows.
+                    stillUndoable = MutableStateFlow(true),
+                    onUndo = { container.scope.launch { container.playlists.undoAdd(added) } },
+                )
+            }
+        }
     }
 }

@@ -168,6 +168,44 @@ class PlaylistControllerTest {
     }
 
     @Test
+    fun undoingAnAddNotYetSentLeavesNothingToSend() = runTest {
+        val id = UUID.randomUUID()
+        library.insertLocalPlaylist(Playlist(id, "Mix", 0, now))
+        val controller = controller()
+        val kept = controller.addTracks(listOf(UUID.randomUUID()), id)
+
+        val added = controller.addTracks(listOf(UUID.randomUUID(), UUID.randomUUID()), id)
+        controller.undoAdd(added)
+
+        assertEquals(kept.map { it.id }, library.playlistItems(id).map { it.id })
+        val payloads = library.pendingMutations().map { AddItemsPayload.serializer().decodeOrNull(it.payload)!! }
+        assertEquals(kept.map { it.id }, payloads.flatMap { p -> p.items.map { it.tempItemId } })
+    }
+
+    @Test
+    fun undoingAnAddTheServerConfirmedRemovesItsItems() = runTest {
+        val controller = controller()
+        val created = controller.createPlaylist("Mix")!!
+        val added = controller.addTracks(listOf(UUID.randomUUID()), created.id)
+        testScheduler.runCurrent()
+        // Sent and confirmed: the playlist and the item now carry the server's ids.
+        library.deletePendingMutations(library.pendingMutations().map { it.localId })
+        val confirmed = Playlist(UUID.randomUUID(), "Mix", 1, now)
+        library.remapPlaylistId(created.id, confirmed)
+        val serverItem = added.single().copy(id = UUID.randomUUID(), playlistId = confirmed.id)
+        library.deleteLocalPlaylistItem(added.single().id)
+        library.insertLocalPlaylistItem(serverItem)
+        testScheduler.runCurrent()
+
+        controller.undoAdd(added)
+
+        assertTrue(library.playlistItems(confirmed.id).isEmpty())
+        val payload = RemoveItemsPayload.serializer().decodeOrNull(library.pendingMutations().single().payload)!!
+        assertEquals(confirmed.id, payload.playlistId)
+        assertEquals(listOf(serverItem.id), payload.itemIds)
+    }
+
+    @Test
     fun addingToAnAutoDownloadPlaylistDownloadsWhatIsMissing() = runTest {
         val id = UUID.randomUUID()
         library.insertLocalPlaylist(Playlist(id, "Mix", 0, now))

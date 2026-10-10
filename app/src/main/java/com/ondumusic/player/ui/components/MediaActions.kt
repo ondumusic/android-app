@@ -28,6 +28,7 @@ import com.ondumusic.player.ui.downloads.albumDownloadActions
 import com.ondumusic.player.ui.downloads.artistDownloadActions
 import com.ondumusic.player.ui.downloads.trackDownloadActions
 import com.ondumusic.player.ui.navigation.LocalNavigator
+import com.ondumusic.player.ui.playlists.rememberAddToPlaylist
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -40,6 +41,7 @@ private fun queueActions(tracks: suspend () -> List<Track>, artworkUrl: String? 
     val container = LocalContainer.current
     val navigator = LocalNavigator.current
     val player = container.player
+    val addToPlaylist = rememberAddToPlaylist()
     val lastUsedId by container.playlists.lastUsedPlaylistId.collectAsStateWithLifecycle()
     val lastUsed by produceState<Playlist?>(null, lastUsedId) {
         value = lastUsedId?.let { container.library.playlist(it) }
@@ -69,15 +71,15 @@ private fun queueActions(tracks: suspend () -> List<Track>, artworkUrl: String? 
     }
     val addToLast = lastUsed?.takeIf { !it.isFolder }?.let { playlist ->
         Action(stringResource(R.string.action_add_to_named, playlist.name), Icons.Outlined.AddCircleOutline) {
-            withTrackIds { container.playlists.addTracks(it, playlist.id) }
+            withTrackIds { addToPlaylist(it, playlist) }
         }
     }
-    val addToPlaylist = Action(stringResource(R.string.action_add_to_playlist), Icons.AutoMirrored.Outlined.PlaylistAdd) {
+    val pickPlaylist = Action(stringResource(R.string.action_add_to_playlist), Icons.AutoMirrored.Outlined.PlaylistAdd) {
         withTrackIds { navigator.addToPlaylist(it) }
     }
     return listOf(
         listOfNotNull(play, shuffleAction.takeIf { shuffle }),
-        listOfNotNull(playNext, addToQueue, addToLast, addToPlaylist),
+        listOfNotNull(playNext, addToQueue, addToLast, pickPlaylist),
     )
 }
 

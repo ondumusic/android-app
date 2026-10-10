@@ -20,6 +20,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * UI-facing façade for playlist mutations: the local store is updated at once and the
@@ -45,6 +46,9 @@ class PlaylistController(
 ) {
     private val lock = Mutex()
 
+    /** Temporary playlist ids and the server's, for undoing an add made before the playlist was confirmed. */
+    private val remappedPlaylists = ConcurrentHashMap<UUID, UUID>()
+
     private val _lastUsedPlaylistId = MutableStateFlow(prefs.getString(KEY_LAST_USED, null)?.let(::uuidOrNull))
     /** Powers the "Add to <name>" shortcut in track/album/artist menus. Set whenever tracks are added to a playlist. */
     val lastUsedPlaylistId: StateFlow<UUID?> = _lastUsedPlaylistId.asStateFlow()
@@ -54,6 +58,7 @@ class PlaylistController(
         // server's, the shortcut would point at a playlist that no longer exists.
         scope.launch {
             musicLibrary.playlistIdRemapped.collect { (temp, real) ->
+                remappedPlaylists[temp] = real
                 if (_lastUsedPlaylistId.value == temp) setLastUsed(real)
             }
         }
@@ -131,16 +136,19 @@ class PlaylistController(
 
     suspend fun addTrack(trackId: UUID, playlistId: UUID) = addTracks(listOf(trackId), playlistId)
 
-    suspend fun addTracks(trackIds: List<UUID>, playlistId: UUID) = perform {
-        if (trackIds.isEmpty()) return@perform
+    /** Returns the items added, for [undoAdd]. */
+    suspend fun addTracks(trackIds: List<UUID>, playlistId: UUID): List<PlaylistItem> = perform {
+        if (trackIds.isEmpty()) return@perform emptyList()
         var cursor = musicLibrary.lastPlaylistItemPosition(playlistId)
         val entries = ArrayList<AddItemsPayload.Entry>(trackIds.size)
+        val added = ArrayList<PlaylistItem>(trackIds.size)
         for (trackId in trackIds) {
             val position = FractionalIndex.after(cursor)
             cursor = position
-            val tempItemId = UUID.randomUUID()
-            musicLibrary.insertLocalPlaylistItem(PlaylistItem(tempItemId, playlistId, trackId, position, Instant.now()))
-            entries += AddItemsPayload.Entry(tempItemId, trackId, position)
+            val item = PlaylistItem(UUID.randomUUID(), playlistId, trackId, position, Instant.now())
+            musicLibrary.insertLocalPlaylistItem(item)
+            entries += AddItemsPayload.Entry(item.id, trackId, position)
+            added += item
         }
         outbox.enqueueAddItems(playlistId, entries)
         setLastUsed(playlistId)
@@ -149,6 +157,27 @@ class PlaylistController(
             val downloaded = musicLibrary.tracks(trackIds).values.filter { it.isDownloaded }.map { it.id }.toSet()
             val undownloaded = trackIds.toSet() - downloaded
             if (undownloaded.isNotEmpty()) downloadTracks(undownloaded)
+        }
+        added
+    }
+
+    /**
+     * Takes back an add. Still queued, the add is simply dropped from the outbox; already
+     * sent, the items are removed like any other. Either way they're found by playlist,
+     * track and position, since the server may have given the items and the playlist ids
+     * of their own meanwhile. Items already removed are skipped.
+     */
+    suspend fun undoAdd(items: List<PlaylistItem>) = perform {
+        for ((originalPlaylist, added) in items.groupBy { it.playlistId }) {
+            val playlistId = remappedPlaylists[originalPlaylist] ?: originalPlaylist
+            val current = musicLibrary.playlistItems(playlistId)
+            val ids = added.mapNotNull { item ->
+                current.firstOrNull { it.id == item.id || (it.trackId == item.trackId && it.position == item.position) }?.id
+            }
+            if (ids.isEmpty()) continue
+            ids.forEach { musicLibrary.deleteLocalPlaylistItem(it) }
+            val stillNeedsServer = outbox.compactForRemovedItems(ids)
+            if (stillNeedsServer.isNotEmpty()) outbox.enqueueRemoveItems(playlistId, stillNeedsServer)
         }
     }
 

@@ -46,6 +46,10 @@
         <item quantity="one">Add %d song to</item>
         <item quantity="other">Add %d songs to</item>
     </plurals>
+    <plurals name="playlist_added_to">
+        <item quantity="one">Added to %2$s</item>
+        <item quantity="other">Added %1$d songs to %2$s</item>
+    </plurals>
 
     <!-- Sync -->
     <string name="playlist_sync_issue">Playlist sync issue</string>
