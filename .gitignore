@@ -5,6 +5,7 @@ build/
 
 # Per-machine: SDK location, signing keys
 local.properties
+keystore.properties
 *.jks
 *.keystore
 
