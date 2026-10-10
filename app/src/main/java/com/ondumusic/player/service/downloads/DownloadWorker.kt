@@ -22,6 +22,7 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.sample
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -49,7 +50,13 @@ class DownloadWorker(context: Context, params: WorkerParameters) : CoroutineWork
                     .collect { (state, progress) -> if (state.transferringCount > 0) showProgress(state, progress) }
             }
             showProgress(downloads.state.value, downloads.progress.value)
-            downloads.awaitIdle()
+            // While this worker is running, an enqueue is kept rather than queued (see [enqueue]),
+            // so a download that starts as the queue empties must be picked up here or it runs
+            // unprotected. A short grace period before finishing closes that window.
+            do {
+                downloads.awaitIdle()
+                delay(IDLE_GRACE_MILLIS)
+            } while (downloads.state.value.transferringCount > 0)
             notifications.cancel()
         }
         return Result.success()
@@ -102,6 +109,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) : CoroutineWork
         /** Clear of Media3's playback notification. */
         private const val NOTIFICATION_ID = 2001
         private const val NOTIFICATION_INTERVAL_MILLIS = 1_000L
+        private const val IDLE_GRACE_MILLIS = 2_000L
 
         /** Idempotent: while a worker is running, this keeps it rather than queueing another. */
         fun enqueue(context: Context) {
