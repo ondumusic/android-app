@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ondumusic.player.AppContainer
 import com.ondumusic.player.ui.auth.LoginScreen
+import com.ondumusic.player.ui.banners.WithAppBanners
 import com.ondumusic.player.ui.theme.OnduTheme
 
 private enum class Stage { Launching, SignedOut, Syncing, Ready }
@@ -38,7 +39,9 @@ fun OnduApp(container: AppContainer) {
                 Stage.SignedOut -> LoginScreen(container.auth)
                 Stage.Syncing -> current?.let { SyncProgressScreen(it.sync, container.auth) }
                 Stage.Ready -> current?.let { session ->
-                    CompositionLocalProvider(LocalContainer provides container, LocalSession provides session) { MainScreen() }
+                    CompositionLocalProvider(LocalContainer provides container, LocalSession provides session) {
+                        WithAppBanners { MainScreen() }
+                    }
                 }
             }
         }
