@@ -175,7 +175,12 @@ class PlayerService(
         scope.launch { restoreState() }
     }
 
-    val effectiveIndex: Int get() = _state.value.effectiveIndex
+    /**
+     * Read from the working fields, not from [state]: a mutation that moves [currentIndex]
+     * and then loads the track (skip, back, restore) reads this before anything is published.
+     */
+    val effectiveIndex: Int
+        get() = shuffledIndices?.let { it.getOrNull(currentIndex) ?: 0 } ?: currentIndex
 
     /** Whether [back] does anything: restart a track that's under way, or step to an earlier one. */
     val canGoBack: Boolean
