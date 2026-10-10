@@ -67,6 +67,7 @@ import com.ondumusic.player.ui.player.PlayerFeedback
 import com.ondumusic.player.ui.player.playerSnackbarPadding
 import com.ondumusic.player.ui.playlists.AddToPlaylistSheet
 import com.ondumusic.player.ui.playlists.PlaylistScreen
+import com.ondumusic.player.ui.playlists.PlaylistSyncErrorDialog
 import com.ondumusic.player.ui.playlists.PlaylistsScreen
 import com.ondumusic.player.ui.search.SearchScreen
 import com.ondumusic.player.ui.settings.SettingsScreen
@@ -194,6 +195,7 @@ fun MainScreen() {
 
             PlayerFeedback(snackbars)
             SnackbarHost(snackbars, Modifier.align(Alignment.BottomCenter).playerSnackbarPadding(showFullPlayer && hasMiniPlayer, hasMiniPlayer))
+            PlaylistSyncErrorDialog()
         }
         addToPlaylist?.let { ids -> AddToPlaylistSheet(ids, onDismiss = { addToPlaylist = null }) }
     }
