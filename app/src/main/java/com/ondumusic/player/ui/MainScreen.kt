@@ -24,6 +24,8 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
@@ -61,6 +63,8 @@ import com.ondumusic.player.ui.navigation.Tab
 import com.ondumusic.player.ui.player.FullPlayerScreen
 import com.ondumusic.player.ui.player.MiniPlayer
 import com.ondumusic.player.ui.player.MiniPlayerHeight
+import com.ondumusic.player.ui.player.PlayerFeedback
+import com.ondumusic.player.ui.player.playerSnackbarPadding
 import com.ondumusic.player.ui.playlists.AddToPlaylistSheet
 import com.ondumusic.player.ui.playlists.PlaylistScreen
 import com.ondumusic.player.ui.playlists.PlaylistsScreen
@@ -96,6 +100,7 @@ fun MainScreen() {
     val reselects = remember { MutableSharedFlow<Tab>(extraBufferCapacity = 1) }
     val playerState by container.player.state.collectAsStateWithLifecycle()
     val hasMiniPlayer = playerState.currentTrack != null
+    val snackbars = remember { SnackbarHostState() }
 
     val navigator = remember(stacks) {
         object : Navigator {
@@ -186,6 +191,9 @@ fun MainScreen() {
                 BackHandler { showFullPlayer = false }
                 FullPlayerScreen(onClose = { showFullPlayer = false })
             }
+
+            PlayerFeedback(snackbars)
+            SnackbarHost(snackbars, Modifier.align(Alignment.BottomCenter).playerSnackbarPadding(showFullPlayer && hasMiniPlayer, hasMiniPlayer))
         }
         addToPlaylist?.let { ids -> AddToPlaylistSheet(ids, onDismiss = { addToPlaylist = null }) }
     }
