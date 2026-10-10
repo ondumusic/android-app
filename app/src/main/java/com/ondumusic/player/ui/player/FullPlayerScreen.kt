@@ -1,5 +1,9 @@
 package com.ondumusic.player.ui.player
 
+import androidx.core.view.WindowCompat
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.runtime.DisposableEffect
+import android.app.Activity
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
@@ -114,6 +118,7 @@ fun FullPlayerScreen(onClose: () -> Unit) {
     var showQueue by rememberSaveable { mutableStateOf(false) }
     var showActions by rememberSaveable { mutableStateOf(false) }
 
+    LightSystemBarIcons(enabled = tinted || isSystemInDarkTheme())
     PlayerTheme(tinted, seed) {
         DragToDismiss(onClose) {
             Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
@@ -180,6 +185,27 @@ private fun PlayerTheme(tinted: Boolean, seed: Color?, content: @Composable () -
 }
 
 private val NEUTRAL_SEED = Color(0xFF9E9E9E)
+
+/**
+ * The tinted player is dark whatever the system theme, so in light mode the status bar's
+ * dark icons would vanish into it. Set for as long as the player is showing, then handed
+ * back to what the app's own theme wants.
+ */
+@Composable
+private fun LightSystemBarIcons(enabled: Boolean) {
+    val view = LocalView.current
+    val appIsDark = isSystemInDarkTheme()
+    DisposableEffect(view, enabled, appIsDark) {
+        val window = (view.context as? Activity)?.window ?: return@DisposableEffect onDispose {}
+        val controller = WindowCompat.getInsetsController(window, view)
+        controller.isAppearanceLightStatusBars = !enabled
+        controller.isAppearanceLightNavigationBars = !enabled
+        onDispose {
+            controller.isAppearanceLightStatusBars = !appIsDark
+            controller.isAppearanceLightNavigationBars = !appIsDark
+        }
+    }
+}
 
 /**
  * Pull the player down to put it away, like a sheet. Released past a quarter of the way,
