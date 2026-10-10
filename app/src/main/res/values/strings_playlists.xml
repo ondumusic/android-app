@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Lists -->
+    <string name="no_playlists">No Playlists</string>
+    <string name="folder_empty">Empty Folder</string>
+    <string name="playlist_empty">Empty Playlist</string>
+    <string name="playlist_create_menu">Create</string>
+    <plurals name="folder_item_count">
+        <item quantity="one">%d item</item>
+        <item quantity="other">%d items</item>
+    </plurals>
+
+    <!-- Actions -->
+    <string name="playlist_new">New Playlist</string>
+    <string name="playlist_new_ellipsis">New Playlist…</string>
+    <string name="folder_new">New Folder</string>
+    <string name="playlist_rename">Rename</string>
+    <string name="playlist_move_to_folder">Move to Folder…</string>
+    <string name="folder_move">Move…</string>
+    <string name="playlist_delete">Delete Playlist</string>
+    <string name="folder_delete">Delete Folder</string>
+    <string name="playlist_remove_item">Remove from Playlist</string>
+    <string name="playlist_remove">Remove</string>
+    <string name="playlist_reorder">Drag to reorder</string>
+
+    <!-- Name dialog -->
+    <string name="playlist_name">Name</string>
+    <string name="playlist_create">Create</string>
+    <string name="playlist_save">Save</string>
+    <string name="playlist_cancel">Cancel</string>
+
+    <!-- Delete confirmation -->
+    <string name="playlist_delete_title">Delete %1$s?</string>
+    <string name="playlist_delete_message">This will permanently delete the playlist.</string>
+    <string name="folder_delete_message">This will permanently delete the folder and everything inside it.</string>
+
+    <!-- Move -->
+    <string name="playlist_move_title">Move Playlist</string>
+    <string name="folder_move_title">Move Folder</string>
+    <string name="playlist_move_root">Playlists (top level)</string>
+    <string name="playlist_move_current">Current location</string>
+
+    <!-- Add to playlist -->
+    <string name="playlist_add_title">Add to Playlist</string>
+    <plurals name="playlist_add_songs_to">
+        <item quantity="one">Add %d song to</item>
+        <item quantity="other">Add %d songs to</item>
+    </plurals>
+
+    <!-- Sync -->
+    <string name="playlist_sync_issue">Playlist sync issue</string>
+    <string name="playlist_ok">OK</string>
+</resources>
