@@ -13,10 +13,20 @@ import com.ondumusic.player.model.ArtworkVariant
 import com.ondumusic.player.model.Playlist
 import com.ondumusic.player.model.PlaylistItem
 import com.ondumusic.player.model.Track
+import androidx.room.InvalidationTracker
+import com.ondumusic.player.util.NaturalOrder
+import com.ondumusic.player.util.compareNatural
+import com.ondumusic.player.util.containsNatural
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.time.Instant
 import java.util.UUID
@@ -38,6 +48,28 @@ class MusicLibrary(
 
     /** (temp, real) when a playlist created offline gets its server id, so screens showing it can follow. */
     val playlistIdRemapped: SharedFlow<Pair<UUID, UUID>> = _playlistIdRemapped
+
+    /**
+     * `allTracks()` is the most expensive query in the app at library scale, and every
+     * visit to Songs asks for it. Held until a table it reads from changes.
+     */
+    @Volatile private var cachedAllTracks: List<Track>? = null
+    /** Bumped on every change, so a rebuild that raced a write doesn't install what it read before it. */
+    private val tracksGeneration = java.util.concurrent.atomic.AtomicLong()
+    private val allTracksLock = Mutex()
+
+    init {
+        // Room reports changes asynchronously, which covers writes made elsewhere (downloads);
+        // this class's own writes also invalidate directly so a read right after sees them.
+        db.invalidationTracker.addObserver(object : InvalidationTracker.Observer(arrayOf("tracks", "artists", "albums")) {
+            override fun onInvalidated(tables: Set<String>) = invalidateTracks()
+        })
+    }
+
+    private fun invalidateTracks() {
+        tracksGeneration.incrementAndGet()
+        cachedAllTracks = null
+    }
 
     // Artists
 
@@ -85,6 +117,63 @@ class MusicLibrary(
     fun observeTracksForAlbumArtist(artistId: UUID): Flow<List<Track>> =
         db.tracks().observeForAlbumArtist(artistId).map { rows -> rows.map { it.toTrack() } }
 
+    /** The library's own order: album artist, album, disc, track number. */
+    suspend fun allTracks(): List<Track> {
+        cachedAllTracks?.let { return it }
+        return allTracksLock.withLock {
+            cachedAllTracks ?: run {
+                val generation = tracksGeneration.get()
+                val built = withContext(Dispatchers.Default) { sortedTracks(db.tracks().all().map { it.toTrack() }) }
+                if (tracksGeneration.get() == generation) cachedAllTracks = built
+                built
+            }
+        }
+    }
+
+    fun observeAllTracks(): Flow<List<Track>> =
+        db.invalidationTracker.createFlow("tracks", "artists", "albums")
+            .conflate()
+            .map { allTracks() }
+
+    /**
+     * Matches artists and albums on their names, and tracks on their title — plus, so that
+     * searching an artist's name lists their discography and songs rather than only the
+     * titles containing that word, albums by a matched artist and tracks by a matched
+     * artist or on a matched album.
+     */
+    suspend fun search(query: String): SearchResults = withContext(Dispatchers.Default) {
+        if (query.isBlank()) return@withContext SearchResults()
+        val artists = db.artists().all()
+            .filter { it.name.containsNatural(query) || it.sortName.containsNatural(query) }
+            .map { it.toArtist() }
+        val artistIds = artists.mapTo(HashSet()) { it.id }
+
+        val albums = db.albums().all().map { it.toAlbum() }
+            .filter { it.name.containsNatural(query) || it.sortName.containsNatural(query) || it.artistId in artistIds }
+            .sortedWith(
+                // Name matches first, then the artist's discography in its own order.
+                compareByDescending<Album> { it.name.containsNatural(query) }
+                    .thenBy { it.artistSortName.orEmpty() }
+                    .thenByDescending { it.releaseYear ?: 0 }
+                    .thenComparator { a, b -> a.sortName.compareNatural(b.sortName) }
+            )
+        val albumIds = albums.mapTo(HashSet()) { it.id }
+
+        // Title matches rank above tracks that only matched through their artist or album —
+        // typing a song name should not bury it under that artist's discography.
+        val tracks = allTracks()
+            .filter {
+                it.name.containsNatural(query) || it.artistId in artistIds ||
+                    it.albumArtistId in artistIds || it.albumId in albumIds
+            }
+            .sortedWith(
+                compareByDescending<Track> { it.name.containsNatural(query) }
+                    .thenBy { it.artist.sortName }
+                    .thenBy { it.name }
+            )
+        SearchResults(artists, albums, tracks)
+    }
+
     // Playlists
 
     fun observePlaylists(): Flow<List<Playlist>> = db.playlists().observeAll().map { rows -> rows.map { it.toPlaylist() } }
@@ -116,12 +205,14 @@ class MusicLibrary(
 
     suspend fun upsertArtists(artists: List<SyncArtist>) {
         if (artists.isEmpty()) return
+        invalidateTracks()
         db.artists().upsert(artists.map { it.toEntity() })
     }
 
     /** Returns the ids of albums that weren't in the library before. */
     suspend fun upsertAlbums(albums: List<SyncAlbum>): Set<UUID> {
         if (albums.isEmpty()) return emptySet()
+        invalidateTracks()
         return db.withTransaction {
             val existing = existingIn(albums.map { it.id }) { db.albums().existingIds(it) }
             db.albums().upsert(albums.map { it.toEntity() })
@@ -135,6 +226,7 @@ class MusicLibrary(
      */
     suspend fun upsertTracks(tracks: List<SyncTrack>): Set<UUID> {
         if (tracks.isEmpty()) return emptySet()
+        invalidateTracks()
         return db.withTransaction {
             val results = db.tracks().insertIgnoringExisting(tracks.map { it.toEntity() })
             val inserted = mutableSetOf<UUID>()
@@ -162,6 +254,7 @@ class MusicLibrary(
 
     suspend fun applyDeletions(deletions: List<SyncDeletion>) {
         if (deletions.isEmpty()) return
+        invalidateTracks()
         db.withTransaction {
             for (deletion in deletions) {
                 val id = deletion.entityId
@@ -196,6 +289,7 @@ class MusicLibrary(
             db.playlists().clear()
             db.pendingMutations().clear()
         }
+        invalidateTracks()
     }
 
     private suspend fun deleteArtistCascade(artistId: UUID) {
@@ -228,7 +322,10 @@ class MusicLibrary(
      * Counts a play locally so the UI doesn't wait for the round trip. The next sync
      * replaces both fields with the server's totals, which include other devices.
      */
-    suspend fun recordLocalPlay(trackId: UUID, at: Instant) = db.tracks().recordPlay(trackId, at)
+    suspend fun recordLocalPlay(trackId: UUID, at: Instant) {
+        db.tracks().recordPlay(trackId, at)
+        invalidateTracks()
+    }
 
     // Optimistic playlist writes
 
@@ -316,7 +413,29 @@ class MusicLibrary(
         ids.chunked(900).flatMap { query(it) }.toSet()
 
     companion object {
+        /**
+         * Sorted per album rather than per track: every track in an album shares both
+         * string keys, so comparing albums once instead of collating on every one of
+         * n log n track comparisons is most of the cost saved.
+         */
+        fun sortedTracks(tracks: List<Track>): List<Track> =
+            tracks.groupBy { it.albumArtistId to it.albumId }
+                .values
+                .sortedWith(
+                    compareBy<List<Track>> { it.first().albumArtistSortName }
+                        .thenBy(NaturalOrder) { it.first().album?.sortName.orEmpty() }
+                )
+                .flatMap { album -> album.sortedWith(compareBy({ it.disc }, { it.number ?: Int.MAX_VALUE })) }
+
         /** Downloads/{artistId}/{albumId}/{trackId}.ext under the app's files directory. */
         const val DOWNLOADS_DIR = "Downloads"
     }
+}
+
+data class SearchResults(
+    val artists: List<Artist> = emptyList(),
+    val albums: List<Album> = emptyList(),
+    val tracks: List<Track> = emptyList(),
+) {
+    val isEmpty: Boolean get() = artists.isEmpty() && albums.isEmpty() && tracks.isEmpty()
 }

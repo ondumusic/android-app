@@ -33,6 +33,7 @@ data class Track(
         val name: String,
         val artworkUrl: String?,
         val releaseYear: Int?,
+        val sortName: String = name,
     )
 
     val formattedDuration: String

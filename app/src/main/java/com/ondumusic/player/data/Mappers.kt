@@ -33,7 +33,7 @@ fun TrackRow.toTrack(): Track {
         artist = artist,
         albumArtistName = albumArtistName ?: artist.name,
         albumArtistSortName = albumArtistSortName ?: artist.sortName,
-        album = albumName?.let { Track.TrackAlbum(t.albumId, it, albumArtworkUrl, albumReleaseYear) },
+        album = albumName?.let { Track.TrackAlbum(t.albumId, it, albumArtworkUrl, albumReleaseYear, albumSortName ?: it) },
         name = t.name, disc = t.disc, number = t.number, duration = t.duration,
         mimetype = t.mimetype, streamUrl = t.streamUrl, downloadUrl = t.downloadUrl,
         isDownloaded = t.isDownloaded, lufs = t.lufs,

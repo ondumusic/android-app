@@ -198,4 +198,58 @@ class MusicLibraryTest {
         library.upsertAlbums(listOf(album(trackCount = 0)))
         assertTrue(library.observeAlbums().first().isEmpty())
     }
+
+    @Test
+    fun allTracksFollowArtistAlbumDiscNumber() = runTest {
+        val otherArtist = UUID.randomUUID()
+        val album2 = UUID.randomUUID()
+        val album10 = UUID.randomUUID()
+        library.upsertArtists(listOf(artist(), artist(otherArtist, "Zed")))
+        library.upsertAlbums(listOf(
+            album(),
+            SyncAlbum(album2, artistId, "Vol 2", null, "v2", 2001, null, emptyList(), false, 1, now),
+            SyncAlbum(album10, artistId, "Vol 10", null, "v10", 2001, null, emptyList(), false, 1, now),
+        ))
+        library.upsertTracks(listOf(
+            SyncTrack(UUID.randomUUID(), otherArtist, otherArtist, albumId, "Z", 1, 1, 1.0, "audio/flac", "", "", now),
+            SyncTrack(UUID.randomUUID(), artistId, artistId, album10, "V10", 1, 1, 1.0, "audio/flac", "", "", now),
+            SyncTrack(UUID.randomUUID(), artistId, artistId, album2, "V2", 1, 1, 1.0, "audio/flac", "", "", now),
+            SyncTrack(UUID.randomUUID(), artistId, artistId, albumId, "Disc2", 2, 1, 1.0, "audio/flac", "", "", now),
+            SyncTrack(UUID.randomUUID(), artistId, artistId, albumId, "NoNumber", 1, null, 1.0, "audio/flac", "", "", now),
+            SyncTrack(UUID.randomUUID(), artistId, artistId, albumId, "One", 1, 1, 1.0, "audio/flac", "", "", now),
+        ))
+
+        assertEquals(listOf("One", "NoNumber", "Disc2", "V2", "V10", "Z"), library.allTracks().map { it.name })
+    }
+
+    @Test
+    fun allTracksCacheFollowsChanges() = runTest {
+        seed(track(name = "First"))
+        assertEquals(1, library.allTracks().size)
+        library.upsertTracks(listOf(track(name = "Second")))
+        assertEquals(2, library.allTracks().size)
+    }
+
+    @Test
+    fun searchingAnArtistFindsTheirAlbumsAndSongs() = runTest {
+        seed(track(name = "Untitled"))
+        val results = library.search("artíst")
+        assertEquals(listOf("Artist"), results.artists.map { it.name })
+        assertEquals(listOf("Album"), results.albums.map { it.name })
+        assertEquals(listOf("Untitled"), results.tracks.map { it.name })
+    }
+
+    @Test
+    fun titleMatchesRankAboveArtistMatches() = runTest {
+        library.upsertArtists(listOf(artist(name = "Blue Band")))
+        library.upsertAlbums(listOf(album()))
+        library.upsertTracks(listOf(track(name = "Red"), track(name = "Blue Moon")))
+        assertEquals(listOf("Blue Moon", "Red"), library.search("blue").tracks.map { it.name })
+    }
+
+    @Test
+    fun blankQueriesFindNothing() = runTest {
+        seed(track())
+        assertTrue(library.search("  ").isEmpty)
+    }
 }
