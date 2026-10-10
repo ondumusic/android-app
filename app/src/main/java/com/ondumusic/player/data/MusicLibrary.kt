@@ -1,0 +1,322 @@
+package com.ondumusic.player.data
+
+import androidx.room.withTransaction
+import com.ondumusic.player.api.SyncAlbum
+import com.ondumusic.player.api.SyncArtist
+import com.ondumusic.player.api.SyncDeletion
+import com.ondumusic.player.api.SyncPlaylist
+import com.ondumusic.player.api.SyncPlaylistItem
+import com.ondumusic.player.api.SyncTrack
+import com.ondumusic.player.model.Album
+import com.ondumusic.player.model.Artist
+import com.ondumusic.player.model.ArtworkVariant
+import com.ondumusic.player.model.Playlist
+import com.ondumusic.player.model.PlaylistItem
+import com.ondumusic.player.model.Track
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.map
+import java.io.File
+import java.time.Instant
+import java.util.UUID
+
+/**
+ * The on-device library: everything synced from the server plus local-only state
+ * (download state, queued playlist edits). All browsing reads from here — there is no
+ * API pagination for browse views.
+ *
+ * Reads are Room flows, so screens update when the tables they read change; that takes
+ * the place of the iOS store's `revision` counter.
+ */
+class MusicLibrary(
+    internal val db: LibraryDatabase,
+    /** Root that stored download paths are relative to. */
+    private val filesDir: File,
+) {
+    private val _playlistIdRemapped = MutableSharedFlow<Pair<UUID, UUID>>(extraBufferCapacity = 16)
+
+    /** (temp, real) when a playlist created offline gets its server id, so screens showing it can follow. */
+    val playlistIdRemapped: SharedFlow<Pair<UUID, UUID>> = _playlistIdRemapped
+
+    // Artists
+
+    fun observeArtists(): Flow<List<Artist>> = db.artists().observeAll().map { rows -> rows.map { it.toArtist() } }
+
+    fun observeArtist(id: UUID): Flow<Artist?> = db.artists().observe(id).map { it?.toArtist() }
+
+    suspend fun artist(id: UUID): Artist? = db.artists().get(id)?.toArtist()
+
+    // Albums
+
+    fun observeAlbums(): Flow<List<Album>> = db.albums().observeAll().map { rows -> rows.map { it.toAlbum() } }
+
+    /** Newest first. */
+    fun observeAlbumsForArtist(artistId: UUID): Flow<List<Album>> =
+        db.albums().observeForArtist(artistId).map { rows -> rows.map { it.toAlbum() } }
+
+    fun observeAlbum(id: UUID): Flow<Album?> = db.albums().observe(id).map { it?.toAlbum() }
+
+    suspend fun album(id: UUID): Album? = db.albums().get(id)?.toAlbum()
+
+    /** The album's loudness as the server measured it. Null until it has. */
+    suspend fun albumLufs(albumId: UUID): Double? = db.albums().lufs(albumId)
+
+    // Tracks
+
+    suspend fun track(id: UUID): Track? = db.tracks().get(id)?.toTrack()
+
+    /** Resolves many tracks in one query, keyed by id — restoring a saved queue needs hundreds at once. */
+    suspend fun tracks(ids: Collection<UUID>): Map<UUID, Track> {
+        if (ids.isEmpty()) return emptyMap()
+        // SQLite caps bound parameters; a long queue can exceed it.
+        return ids.distinct().chunked(900)
+            .flatMap { db.tracks().byIds(it) }
+            .associate { it.track.id to it.toTrack() }
+    }
+
+    /** Disc, then track number. */
+    fun observeTracksForAlbum(albumId: UUID): Flow<List<Track>> =
+        db.tracks().observeForAlbum(albumId).map { rows -> rows.map { it.toTrack() } }
+
+    suspend fun tracksForAlbum(albumId: UUID): List<Track> = db.tracks().forAlbum(albumId).map { it.toTrack() }
+
+    /** Every track credited to the artist as album artist, in disc/number order within each album. */
+    fun observeTracksForAlbumArtist(artistId: UUID): Flow<List<Track>> =
+        db.tracks().observeForAlbumArtist(artistId).map { rows -> rows.map { it.toTrack() } }
+
+    // Playlists
+
+    fun observePlaylists(): Flow<List<Playlist>> = db.playlists().observeAll().map { rows -> rows.map { it.toPlaylist() } }
+
+    fun observePlaylist(id: UUID): Flow<Playlist?> = db.playlists().observe(id).map { it?.toPlaylist() }
+
+    suspend fun playlist(id: UUID): Playlist? = db.playlists().get(id)?.toPlaylist()
+
+    suspend fun playlistItems(playlistId: UUID): List<PlaylistItem> =
+        db.playlistItems().forPlaylist(playlistId).map { it.toItem() }
+
+    fun observePlaylistItems(playlistId: UUID): Flow<List<PlaylistItem>> =
+        db.playlistItems().observeForPlaylist(playlistId).map { rows -> rows.map { it.toItem() } }
+
+    /** In position order. Items whose track has gone from the library are skipped. */
+    fun observeTracksForPlaylist(playlistId: UUID): Flow<List<Track>> =
+        db.tracks().observeForPlaylist(playlistId).map { rows -> rows.map { it.toTrack() } }
+
+    suspend fun tracksForPlaylist(playlistId: UUID): List<Track> = db.tracks().forPlaylist(playlistId).map { it.toTrack() }
+
+    suspend fun setPlaylistAutoDownload(id: UUID, enabled: Boolean) = db.playlists().setAutoDownload(id, enabled)
+
+    suspend fun tracksNeedingAutoDownload(): Set<UUID> = db.playlists().tracksNeedingAutoDownload().toSet()
+
+    /** Playlists holding at least one downloaded track — what the downloaded-only filter keeps. */
+    fun observePlaylistIdsWithDownloads(): Flow<Set<UUID>> = db.playlists().observeIdsWithDownloads().map { it.toSet() }
+
+    // Sync writes
+
+    suspend fun upsertArtists(artists: List<SyncArtist>) {
+        if (artists.isEmpty()) return
+        db.artists().upsert(artists.map { it.toEntity() })
+    }
+
+    /** Returns the ids of albums that weren't in the library before. */
+    suspend fun upsertAlbums(albums: List<SyncAlbum>): Set<UUID> {
+        if (albums.isEmpty()) return emptySet()
+        return db.withTransaction {
+            val existing = existingIn(albums.map { it.id }) { db.albums().existingIds(it) }
+            db.albums().upsert(albums.map { it.toEntity() })
+            albums.map { it.id }.filterNot { it in existing }.toSet()
+        }
+    }
+
+    /**
+     * Returns the ids of tracks that weren't in the library before. Existing rows get only
+     * their server-owned columns rewritten, so download state survives every sync.
+     */
+    suspend fun upsertTracks(tracks: List<SyncTrack>): Set<UUID> {
+        if (tracks.isEmpty()) return emptySet()
+        return db.withTransaction {
+            val results = db.tracks().insertIgnoringExisting(tracks.map { it.toEntity() })
+            val inserted = mutableSetOf<UUID>()
+            val existing = mutableListOf<TrackServerFields>()
+            tracks.forEachIndexed { i, track ->
+                if (results[i] == -1L) existing += track.toServerFields() else inserted += track.id
+            }
+            db.tracks().updateServerFields(existing)
+            inserted
+        }
+    }
+
+    suspend fun upsertPlaylists(playlists: List<SyncPlaylist>) {
+        if (playlists.isEmpty()) return
+        db.withTransaction {
+            val results = db.playlists().insertIgnoringExisting(playlists.map { it.toEntity() })
+            db.playlists().updateServerFields(playlists.filterIndexed { i, _ -> results[i] == -1L }.map { it.toServerFields() })
+        }
+    }
+
+    suspend fun upsertPlaylistItems(items: List<SyncPlaylistItem>) {
+        if (items.isEmpty()) return
+        db.playlistItems().upsert(items.map { it.toEntity() })
+    }
+
+    suspend fun applyDeletions(deletions: List<SyncDeletion>) {
+        if (deletions.isEmpty()) return
+        db.withTransaction {
+            for (deletion in deletions) {
+                val id = deletion.entityId
+                when (deletion.entityType) {
+                    "artist" -> deleteArtistCascade(id)
+                    "album" -> deleteAlbumCascade(id)
+                    "track" -> {
+                        db.tracks().localFilePath(id)?.let(::deleteDownloadedFile)
+                        db.tracks().delete(id)
+                    }
+                    "playlist" -> deletePlaylistCascade(id)
+                    "playlistItem" -> db.playlistItems().delete(id)
+                }
+            }
+        }
+    }
+
+    /**
+     * Empties the library.
+     *
+     * [includingDownloads] is for logging out, which discards the user's data on purpose. A
+     * re-sync must not pass it: an initial sync clears the tables before repopulating them,
+     * and taking the audio files with it would leave reconciliation nothing to put back.
+     */
+    suspend fun clearAll(includingDownloads: Boolean = false) {
+        if (includingDownloads) File(filesDir, DOWNLOADS_DIR).deleteRecursively()
+        db.withTransaction {
+            db.tracks().clear()
+            db.albums().clear()
+            db.artists().clear()
+            db.playlistItems().clear()
+            db.playlists().clear()
+            db.pendingMutations().clear()
+        }
+    }
+
+    private suspend fun deleteArtistCascade(artistId: UUID) {
+        db.tracks().localFilePathsForArtist(artistId).forEach(::deleteDownloadedFile)
+        db.tracks().deleteForArtist(artistId)
+        db.albums().deleteForArtist(artistId)
+        db.artists().delete(artistId)
+    }
+
+    private suspend fun deleteAlbumCascade(albumId: UUID) {
+        db.tracks().localFilePathsForAlbum(albumId).forEach(::deleteDownloadedFile)
+        db.tracks().deleteForAlbum(albumId)
+        db.albums().delete(albumId)
+    }
+
+    private suspend fun deletePlaylistCascade(playlistId: UUID) {
+        db.playlistItems().deleteForPlaylist(playlistId)
+        db.playlists().delete(playlistId)
+    }
+
+    private fun deleteDownloadedFile(relativePath: String) {
+        File(filesDir, relativePath).delete()
+    }
+
+    /** Applies what an artwork upload or delete returned, so the change shows before the next sync. */
+    suspend fun setArtistArtwork(artistId: UUID, artwork: List<ArtworkVariant>) =
+        db.artists().setArtwork(artistId, ArtworkJson.encode(artwork))
+
+    /**
+     * Counts a play locally so the UI doesn't wait for the round trip. The next sync
+     * replaces both fields with the server's totals, which include other devices.
+     */
+    suspend fun recordLocalPlay(trackId: UUID, at: Instant) = db.tracks().recordPlay(trackId, at)
+
+    // Optimistic playlist writes
+
+    suspend fun lastPlaylistItemPosition(playlistId: UUID): String? = db.playlistItems().lastPosition(playlistId)
+
+    suspend fun insertLocalPlaylist(playlist: Playlist) = db.playlists().upsert(
+        PlaylistEntity(playlist.id, playlist.name, playlist.trackCount, playlist.insertedAt, playlist.isFolder, playlist.parentId)
+    )
+
+    suspend fun renameLocalPlaylist(id: UUID, name: String) = db.playlists().rename(id, name)
+
+    /** Null [parentId] is the root. */
+    suspend fun moveLocalPlaylist(id: UUID, parentId: UUID?) = db.playlists().move(id, parentId)
+
+    /**
+     * This playlist and, for folders, every nested descendant, depth-first pre-order. The
+     * server forbids cycles; the visited set guards against a malformed local copy anyway.
+     */
+    suspend fun descendantIds(playlistId: UUID): List<UUID> {
+        val result = mutableListOf<UUID>()
+        val visited = mutableSetOf<UUID>()
+        val stack = ArrayDeque(listOf(playlistId))
+        while (stack.isNotEmpty()) {
+            val next = stack.removeLast()
+            if (!visited.add(next)) continue
+            result += next
+            stack.addAll(db.playlists().childIds(next))
+        }
+        return result
+    }
+
+    /** Folders cascade to everything nested, matching what the server will do. */
+    suspend fun deleteLocalPlaylist(id: UUID) = db.withTransaction {
+        descendantIds(id).forEach { deletePlaylistCascade(it) }
+    }
+
+    suspend fun insertLocalPlaylistItem(item: PlaylistItem) = db.withTransaction {
+        db.playlistItems().upsert(listOf(item.toEntity()))
+        db.playlists().adjustTrackCount(item.playlistId, 1)
+    }
+
+    suspend fun deleteLocalPlaylistItem(id: UUID) = db.withTransaction {
+        val item = db.playlistItems().get(id) ?: return@withTransaction
+        db.playlistItems().delete(id)
+        db.playlists().adjustTrackCount(item.playlistId, -1)
+    }
+
+    suspend fun moveLocalPlaylistItem(itemId: UUID, position: String) = db.playlistItems().move(itemId, position)
+
+    /** Replaces an optimistic item's temp id with the one the server assigned. */
+    suspend fun swapLocalPlaylistItemId(tempId: UUID, confirmed: PlaylistItem) = db.withTransaction {
+        db.playlistItems().delete(tempId)
+        db.playlistItems().upsert(listOf(confirmed.toEntity()))
+    }
+
+    /**
+     * Rewrites a playlist created offline from its temp id to the server's, carrying its
+     * items, any children that point at it, and the local auto-download flag along.
+     */
+    suspend fun remapPlaylistId(tempId: UUID, confirmed: Playlist) {
+        db.withTransaction {
+            val autoDownload = db.playlists().get(tempId)?.autoDownload ?: false
+            db.playlists().delete(tempId)
+            db.playlists().upsert(
+                PlaylistEntity(confirmed.id, confirmed.name, confirmed.trackCount, confirmed.insertedAt,
+                    confirmed.isFolder, confirmed.parentId, autoDownload)
+            )
+            db.playlistItems().reassign(tempId, confirmed.id)
+            db.playlists().reparentChildren(tempId, confirmed.id)
+        }
+        _playlistIdRemapped.tryEmit(tempId to confirmed.id)
+    }
+
+    // Outbox storage
+
+    suspend fun pendingMutations(): List<PendingMutationEntity> = db.pendingMutations().all()
+
+    suspend fun enqueuePendingMutation(mutation: PendingMutationEntity) = db.pendingMutations().insert(mutation)
+
+    suspend fun updatePendingMutations(mutations: List<PendingMutationEntity>) = db.pendingMutations().update(mutations)
+
+    suspend fun deletePendingMutations(localIds: List<UUID>) = db.pendingMutations().delete(localIds)
+
+    private suspend fun existingIn(ids: List<UUID>, query: suspend (List<UUID>) -> List<UUID>): Set<UUID> =
+        ids.chunked(900).flatMap { query(it) }.toSet()
+
+    companion object {
+        /** Downloads/{artistId}/{albumId}/{trackId}.ext under the app's files directory. */
+        const val DOWNLOADS_DIR = "Downloads"
+    }
+}
