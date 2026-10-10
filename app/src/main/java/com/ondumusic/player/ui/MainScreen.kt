@@ -66,6 +66,7 @@ import com.ondumusic.player.ui.downloads.inProgressCount
 import com.ondumusic.player.ui.library.AlbumScreen
 import com.ondumusic.player.ui.library.ArtistScreen
 import com.ondumusic.player.ui.library.ArtistsScreen
+import com.ondumusic.player.ui.navigation.LaunchAction
 import com.ondumusic.player.ui.navigation.LocalNavigator
 import com.ondumusic.player.ui.navigation.LocalTabReselects
 import com.ondumusic.player.ui.navigation.Navigator
@@ -225,6 +226,29 @@ fun MainScreen() {
     }
 
     LaunchedEffect(hasMiniPlayer) { if (!hasMiniPlayer) showFullPlayer = false }
+
+    val launchAction by container.launchActions.current.collectAsStateWithLifecycle()
+    LaunchedEffect(launchAction) {
+        when (container.launchActions.consume()) {
+            LaunchAction.Search -> {
+                showFullPlayer = false
+                tab = Tab.Search
+            }
+            LaunchAction.Downloads -> {
+                showFullPlayer = false
+                navigator.push(Route.Downloads)
+            }
+            LaunchAction.ShuffleAll -> {
+                val online = container.network.isOnline.value
+                val tracks = container.library.allTracks().filter { online || it.isDownloaded }
+                if (tracks.isNotEmpty()) {
+                    container.player.requestPlay { container.player.playShuffled(tracks) }
+                    showFullPlayer = true
+                }
+            }
+            null -> Unit
+        }
+    }
 }
 
 @Composable

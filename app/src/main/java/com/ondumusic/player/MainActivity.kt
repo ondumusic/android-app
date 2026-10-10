@@ -1,6 +1,7 @@
 package com.ondumusic.player
 
 import android.content.ComponentName
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -21,7 +22,14 @@ class MainActivity : ComponentActivity() {
         installSplashScreen().setKeepOnScreenCondition { container.auth.isRestoringSession.value }
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Only on a fresh start: a recreated activity's intent was already acted on.
+        if (savedInstanceState == null) container.launchActions.post(intent)
         setContent { OnduApp(container) }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        (application as OnduApplication).container.launchActions.post(intent)
     }
 
     /**

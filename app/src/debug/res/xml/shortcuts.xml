@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The release copy lives in src/main; this one names the debug build's package. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="shuffle_all"
+        android:icon="@drawable/ic_shortcut_shuffle"
+        android:shortcutShortLabel="@string/shortcut_shuffle_all"
+        android:shortcutLongLabel="@string/shortcut_shuffle_all_long">
+        <intent
+            android:action="com.ondumusic.player.action.SHUFFLE_ALL"
+            android:targetClass="com.ondumusic.player.MainActivity"
+            android:targetPackage="com.ondumusic.player.dev" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="search"
+        android:icon="@drawable/ic_shortcut_search"
+        android:shortcutShortLabel="@string/shortcut_search">
+        <intent
+            android:action="com.ondumusic.player.action.SEARCH"
+            android:targetClass="com.ondumusic.player.MainActivity"
+            android:targetPackage="com.ondumusic.player.dev" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="downloads"
+        android:icon="@drawable/ic_shortcut_downloads"
+        android:shortcutShortLabel="@string/shortcut_downloads">
+        <intent
+            android:action="com.ondumusic.player.action.DOWNLOADS"
+            android:targetClass="com.ondumusic.player.MainActivity"
+            android:targetPackage="com.ondumusic.player.dev" />
+    </shortcut>
+</shortcuts>

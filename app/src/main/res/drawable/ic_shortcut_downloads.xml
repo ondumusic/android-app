@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher shortcut: the glyph on a circle in the icon's blue, the way shortcut icons are drawn. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#FFE0E7FF"
+        android:pathData="M24,24m-24,0a24,24 0,1 1,48 0a24,24 0,1 1,-48 0" />
+    <group
+        android:scaleX="1.4"
+        android:scaleY="1.4"
+        android:translateX="7.2"
+        android:translateY="7.2">
+        <path
+            android:fillColor="#FF1230E6"
+            android:pathData="M19,9h-4V3H9v6H5l7,7 7,-7zM5,18v2h14v-2H5z" />
+    </group>
+</vector>

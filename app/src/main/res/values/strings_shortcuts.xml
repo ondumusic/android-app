@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_shuffle_all">Shuffle all</string>
+    <string name="shortcut_shuffle_all_long">Shuffle your library</string>
+    <string name="shortcut_search">Search</string>
+    <string name="shortcut_downloads">Downloads</string>
+</resources>

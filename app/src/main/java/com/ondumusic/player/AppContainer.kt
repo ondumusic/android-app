@@ -21,6 +21,7 @@ import com.ondumusic.player.player.PlaybackStateStore
 import com.ondumusic.player.player.PlayerService
 import com.ondumusic.player.player.SessionPlayer
 import com.ondumusic.player.service.NetworkMonitor
+import com.ondumusic.player.ui.navigation.LaunchActions
 import com.ondumusic.player.service.PlaylistController
 import com.ondumusic.player.service.SyncService
 import com.ondumusic.player.service.downloads.DownloadService
@@ -112,6 +113,8 @@ class AppContainer(context: Context) {
     )
 
     val sessionPlayer = SessionPlayer(player, engine, scope)
+
+    val launchActions = LaunchActions()
 
     private val _session = MutableStateFlow<Session?>(null)
     val session: StateFlow<Session?> = _session.asStateFlow()
