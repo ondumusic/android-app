@@ -178,6 +178,9 @@ class MusicLibrary(
         SearchResults(artists, albums, tracks)
     }
 
+    suspend fun tracksForAlbumArtistInOrder(artistId: UUID): List<Track> =
+        db.tracks().forArtistInPlayOrder(artistId).map { it.toTrack() }
+
     // Playlists
 
     fun observePlaylists(): Flow<List<Playlist>> = db.playlists().observeAll().map { rows -> rows.map { it.toPlaylist() } }

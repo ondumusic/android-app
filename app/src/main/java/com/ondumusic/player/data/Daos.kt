@@ -133,6 +133,11 @@ interface TrackDao {
     @Query("$TRACK_SELECT WHERE t.albumArtistId = :artistId ORDER BY t.disc, IFNULL(t.number, 2147483647)")
     fun observeForAlbumArtist(artistId: UUID): Flow<List<TrackRow>>
 
+    /** Newest album first, each album in disc and track order — what playing an artist plays. */
+    @Query("""$TRACK_SELECT WHERE t.albumArtistId = :artistId AND al.artistId = :artistId
+        ORDER BY IFNULL(al.releaseYear, 0) DESC, al.sortName, t.albumId, t.disc, IFNULL(t.number, 2147483647)""")
+    suspend fun forArtistInPlayOrder(artistId: UUID): List<TrackRow>
+
     @Query("$TRACK_SELECT WHERE t.isDownloaded = 1")
     fun observeDownloaded(): Flow<List<TrackRow>>
 

@@ -1,8 +1,6 @@
 package com.ondumusic.player
 
 import android.content.Context
-import android.net.ConnectivityManager
-import android.net.Network
 import androidx.annotation.OptIn
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -21,6 +19,7 @@ import com.ondumusic.player.player.ExoPlaybackEngine
 import com.ondumusic.player.player.PlaybackStateStore
 import com.ondumusic.player.player.PlayerService
 import com.ondumusic.player.player.SessionPlayer
+import com.ondumusic.player.service.NetworkMonitor
 import com.ondumusic.player.service.PlaylistController
 import com.ondumusic.player.service.SyncService
 import com.ondumusic.player.service.outbox.OutboxService
@@ -62,6 +61,7 @@ class AppContainer(context: Context) {
     val settings = SettingsStore(context.getSharedPreferences("settings", Context.MODE_PRIVATE))
     val auth = AuthService(authPrefs, KeystoreTokenStore(context), http, scope)
     val library = MusicLibrary(LibraryDatabase.create(context), context.filesDir)
+    val network = NetworkMonitor(context)
 
     val outbox = OutboxService(library, { auth.api.value }, scope, auth::markSessionExpired)
 
@@ -124,11 +124,7 @@ class AppContainer(context: Context) {
             override fun onStop(owner: LifecycleOwner) = player.savePlaybackPosition()
         })
 
-        context.getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(
-            object : ConnectivityManager.NetworkCallback() {
-                override fun onAvailable(network: Network) = outbox.drainSoon()
-            }
-        )
+        network.onRestored = outbox::drainSoon
     }
 
     private fun makeSession(api: ApiClient): Session {
