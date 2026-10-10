@@ -46,10 +46,12 @@ class SyncService(
         val flushOutbox: suspend () -> Unit = {},
         val onUnauthorized: () -> Unit = {},
         val downloadTracks: (Set<UUID>) -> Unit = {},
-        /** Records what's on disk before a rebuild empties the library, so reconciliation can put it back. */
-        val writeDownloadManifest: suspend () -> Unit = {},
-        /** Rebuilds download state from the on-disk manifest a store reset left behind. */
-        val reconcileDownloads: suspend () -> Unit = {},
+        /**
+         * Puts download state back from the files on disk after a sync completes. Told
+         * whether it was an initial sync: only then has the whole library just arrived,
+         * which is what makes it safe to delete files whose track is gone.
+         */
+        val reconcileDownloads: suspend (initialSync: Boolean) -> Unit = {},
         val prefetchArtwork: (List<String>) -> Unit = {},
     )
 
@@ -145,7 +147,7 @@ class SyncService(
         val isInitialSync = cursor == null
         if (isInitialSync) {
             // Downloads survive: the files are still valid, and reconciliation re-marks
-            // them from the manifest once the tracks come back.
+            // them from the disk once the tracks come back.
             library.clearAll()
         }
 
@@ -192,7 +194,7 @@ class SyncService(
                     _lastSyncDate.value = now
                     prefs.edit { putLong(KEY_LAST_SYNC, now.toEpochMilli()) }
                     _hasCompletedInitialSync.value = true
-                    hooks.reconcileDownloads()
+                    hooks.reconcileDownloads(isInitialSync)
                     break
                 }
             }
@@ -280,7 +282,6 @@ class SyncService(
      * the way back. Downloaded files are kept.
      */
     suspend fun rebuildLibrary() {
-        hooks.writeDownloadManifest()
         clearState(prefs)
         _hasCompletedInitialSync.value = false
         sync()

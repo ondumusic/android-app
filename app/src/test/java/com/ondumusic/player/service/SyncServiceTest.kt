@@ -244,6 +244,28 @@ class SyncServiceTest {
     }
 
     @Test
+    fun reconcilesDownloadsAfterEachCompleteSyncSayingWhetherItWasInitial() = runTest {
+        val reconciled = mutableListOf<Boolean>()
+        val hooks = SyncService.Hooks(reconcileDownloads = { reconciled += it })
+        pages[null] = page("c1", complete = true, tracks = listOf(track(t1, "Airbag")), withArtist = true)
+        service(hooks).sync()
+        pages["c1"] = page("c2", complete = false)
+        pages["c2"] = page("c3", complete = true)
+        service(hooks).sync()
+
+        assertEquals(listOf(true, false), reconciled)
+    }
+
+    @Test
+    fun anIncompleteSyncLeavesDownloadsAlone() = runTest {
+        val reconciled = mutableListOf<Boolean>()
+        pages[null] = page("c1", complete = false, withArtist = true)
+        service(SyncService.Hooks(reconcileDownloads = { reconciled += it })).sync()
+
+        assertTrue(reconciled.isEmpty())
+    }
+
+    @Test
     fun flushesTheOutboxBeforePulling() = runTest {
         pages[null] = page("c1", complete = true)
         val order = mutableListOf<String>()
