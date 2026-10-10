@@ -14,6 +14,7 @@ import com.ondumusic.player.auth.AuthService
 import com.ondumusic.player.auth.KeystoreTokenStore
 import com.ondumusic.player.data.LibraryDatabase
 import com.ondumusic.player.data.MusicLibrary
+import com.ondumusic.player.data.reconcileDownloadedFiles
 import com.ondumusic.player.player.ExoPlaybackEngine
 import com.ondumusic.player.player.PlaybackCacheEvictor
 import com.ondumusic.player.player.PlaybackStateStore
@@ -22,6 +23,8 @@ import com.ondumusic.player.player.SessionPlayer
 import com.ondumusic.player.service.NetworkMonitor
 import com.ondumusic.player.service.PlaylistController
 import com.ondumusic.player.service.SyncService
+import com.ondumusic.player.service.downloads.DownloadService
+import com.ondumusic.player.service.downloads.SystemDownloadConditions
 import com.ondumusic.player.service.outbox.OutboxService
 import com.ondumusic.player.settings.SettingsStore
 import kotlinx.coroutines.CoroutineScope
@@ -66,9 +69,16 @@ class AppContainer(context: Context) {
 
     val outbox = OutboxService(library, { auth.api.value }, scope, auth::markSessionExpired)
 
+    // Downloads
+    val downloads = DownloadService(
+        library, settings, http, auth.api, network.isOnline, SystemDownloadConditions(context), scope,
+        DownloadService.Hooks(onUnauthorized = auth::markSessionExpired),
+    )
+
     val playlists = PlaylistController(
         library, outbox, context.getSharedPreferences("playlists", Context.MODE_PRIVATE), scope,
-        downloadTracks = { /* Downloads arrive in a later phase. */ },
+        removeDownloads = downloads::remove,
+        downloadTracks = downloads::downloadTracks,
     )
 
     private val cacheEvictor = PlaybackCacheEvictor(settings.playbackCacheLimit.value)
@@ -123,6 +133,8 @@ class AppContainer(context: Context) {
                         }
                         player.clearPersistedState()
                         SyncService.clearState(syncPrefs)
+                        // Before the files go, so no transfer is left writing into the deleted directory.
+                        downloads.reset()
                         library.clearAll(includingDownloads = true)
                     }
                     hadSession = false
@@ -145,6 +157,8 @@ class AppContainer(context: Context) {
             SyncService.Hooks(
                 flushOutbox = outbox::flush,
                 onUnauthorized = auth::markSessionExpired,
+                downloadTracks = { ids -> scope.launch { downloads.downloadTracks(ids) } },
+                reconcileDownloads = { initialSync -> library.reconcileDownloadedFiles(deleteOrphans = initialSync) },
             ),
         )
         return Session(api, sync)
@@ -161,6 +175,8 @@ class AppContainer(context: Context) {
             }
         }
         outbox.drainSoon()
+        // Also how the stored queue resumes at launch: restored now, started once signed in.
+        scope.launch { downloads.start() }
         if (session != null && !auth.isRestoringSession.value) {
             scope.launch { session.sync.syncIfNeeded() }
         }
