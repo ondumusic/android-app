@@ -30,6 +30,14 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -139,7 +147,12 @@ fun MainScreen() {
 
     CompositionLocalProvider(LocalNavigator provides navigator, LocalTabReselects provides reselects) {
         Box(Modifier.fillMaxSize()) {
+            val layout = navigationLayout()
+            // With the bar gone, nothing below the content accounts for the gesture area any more.
+            val bottomInset = if (layout == NavigationSuiteType.NavigationBar) 0.dp
+                else WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
             NavigationSuiteScaffold(
+                layoutType = layout,
                 navigationSuiteItems = {
                     Tab.entries.forEach { t ->
                         val style = tabStyles.getValue(t)
@@ -160,7 +173,7 @@ fun MainScreen() {
                 },
             ) {
                 Box(Modifier.fillMaxSize()) {
-                    CompositionLocalProvider(LocalBottomContentPadding provides if (hasMiniPlayer) MiniPlayerHeight else androidx.compose.ui.unit.Dp(0f)) {
+                    CompositionLocalProvider(LocalBottomContentPadding provides bottomInset + if (hasMiniPlayer) MiniPlayerHeight else 0.dp) {
                         // Each tab keeps its scroll positions and state while another is showing.
                         tabHolder.SaveableStateProvider(tab) {
                             NavDisplay(
@@ -183,7 +196,11 @@ fun MainScreen() {
                             )
                         }
                     }
-                    MiniPlayer(onOpen = { showFullPlayer = true }, modifier = Modifier.align(Alignment.BottomCenter))
+                    MiniPlayer(
+                        onOpen = { showFullPlayer = true },
+                        // Stretched across a landscape phone or a tablet it reads as a banner, not a player.
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = bottomInset).widthIn(max = 640.dp),
+                    )
                 }
             }
 
@@ -233,4 +250,14 @@ private fun AccountMenu(onDownloads: () -> Unit, onSettings: () -> Unit) {
 
 private fun NavBackStack<NavKey>.popToRoot() {
     while (size > 1) removeAt(lastIndex)
+}
+
+/**
+ * A bottom bar on a phone held upright; a rail down the side once the window is wide, or
+ * short — in landscape a bottom bar, the mini player and a top bar leave room for about one row.
+ */
+@Composable
+private fun navigationLayout(): NavigationSuiteType {
+    val size = LocalWindowInfo.current.containerDpSize
+    return if (size.width >= 600.dp || size.height < 480.dp) NavigationSuiteType.NavigationRail else NavigationSuiteType.NavigationBar
 }
