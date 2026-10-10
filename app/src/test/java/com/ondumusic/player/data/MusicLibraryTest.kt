@@ -171,10 +171,11 @@ class MusicLibraryTest {
         library.insertLocalPlaylist(Playlist(childId, "Child", 0, now, parentId = temp))
         library.insertLocalPlaylistItem(PlaylistItem(UUID.randomUUID(), temp, t.id, "a0", now))
 
-        library.remapPlaylistId(temp, Playlist(real, "Folder", 1, now, isFolder = true))
+        library.remapPlaylistId(temp, Playlist(real, "Folder", 0, now, isFolder = true))
 
         assertNull(library.playlist(temp))
         assertTrue(library.playlist(real)!!.autoDownload)
+        assertEquals("added offline, so the local count stands", 1, library.playlist(real)!!.trackCount)
         assertEquals(real, library.playlist(childId)!!.parentId)
         assertEquals(1, library.playlistItems(real).size)
     }

@@ -404,10 +404,14 @@ class MusicLibrary(
      */
     suspend fun remapPlaylistId(tempId: UUID, confirmed: Playlist) {
         db.withTransaction {
-            val autoDownload = db.playlists().get(tempId)?.autoDownload ?: false
+            val local = db.playlists().get(tempId)
+            val autoDownload = local?.autoDownload ?: false
+            // The server counted the playlist when it was created; anything added since is only
+            // counted here until the next sync, so the local figure is the right one to keep.
+            val trackCount = maxOf(confirmed.trackCount, local?.trackCount ?: 0)
             db.playlists().delete(tempId)
             db.playlists().upsert(
-                PlaylistEntity(confirmed.id, confirmed.name, confirmed.trackCount, confirmed.insertedAt,
+                PlaylistEntity(confirmed.id, confirmed.name, trackCount, confirmed.insertedAt,
                     confirmed.isFolder, confirmed.parentId, autoDownload)
             )
             db.playlistItems().reassign(tempId, confirmed.id)
