@@ -44,6 +44,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.job
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
@@ -149,6 +150,7 @@ class DownloadService(
 
     /** Written from transfer threads, read by the sampler. */
     private val rawProgress = ConcurrentHashMap<UUID, Float>()
+    private val progressLock = Any()
 
     init {
         scope.launch { settings.maxConcurrentDownloads.flow.drop(1).collect { locked { startNext() } } }
@@ -481,6 +483,29 @@ class DownloadService(
     }
 
     private fun publish() {
+        val transferring = phases.values.any { it is Phase.Running }
+        synchronized(progressLock) {
+            rawProgress.keys.retainAll(phases.keys)
+            if (!transferring) {
+                sampler?.cancel()
+                sampler = null
+            }
+            _progress.value = HashMap(rawProgress)
+        }
+        if (transferring && sampler?.isActive != true) {
+            sampler = scope.launch {
+                while (true) {
+                    delay(timing.progressIntervalMillis)
+                    // Checked under the lock publish cancels under, or a copy taken just before a
+                    // download finished could land after it and leave its progress showing for good.
+                    synchronized(progressLock) {
+                        if (!isActive) return@launch
+                        _progress.value = HashMap(rawProgress)
+                    }
+                }
+            }
+        }
+        // After progress, so anyone who sees a download finish here also sees its progress gone.
         _state.value = DownloadsState(
             active = phases.values.map {
                 ActiveDownload(it.track.id, it.track.name, it.track.albumArtistName, it.track.albumId, isPaused = it is Phase.Paused)
@@ -491,21 +516,6 @@ class DownloadService(
             pausedReason = pausedReason,
             ignoresBatterySaver = ignoresBatterySaver,
         )
-        rawProgress.keys.retainAll(phases.keys)
-        if (phases.values.any { it is Phase.Running }) {
-            if (sampler?.isActive != true) {
-                sampler = scope.launch {
-                    while (true) {
-                        delay(timing.progressIntervalMillis)
-                        _progress.value = HashMap(rawProgress)
-                    }
-                }
-            }
-        } else {
-            sampler?.cancel()
-            sampler = null
-            _progress.value = HashMap(rawProgress)
-        }
     }
 
     // Transfers, off the mutex
