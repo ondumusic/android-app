@@ -1,10 +1,9 @@
 package com.ondumusic.player.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
@@ -40,6 +39,7 @@ import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,7 +49,11 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavBackStack
@@ -75,7 +79,8 @@ import com.ondumusic.player.ui.navigation.LocalTabReselects
 import com.ondumusic.player.ui.navigation.Navigator
 import com.ondumusic.player.ui.navigation.Route
 import com.ondumusic.player.ui.navigation.Tab
-import com.ondumusic.player.ui.player.FullPlayerScreen
+import com.ondumusic.player.ui.player.ExpandingPlayer
+import com.ondumusic.player.ui.player.PlayerExpansion
 import com.ondumusic.player.ui.player.MiniPlayer
 import com.ondumusic.player.ui.player.MiniPlayerHeight
 import com.ondumusic.player.ui.player.PlayerFeedback
@@ -111,7 +116,12 @@ fun MainScreen() {
     var tab by rememberSaveable { mutableStateOf(Tab.Artists) }
     val stacks: Map<Tab, NavBackStack<NavKey>> = Tab.entries.associateWith { rememberNavBackStack(it.root) }
     val stack = stacks.getValue(tab)
-    var showFullPlayer by rememberSaveable { mutableStateOf(false) }
+    var savedExpanded by rememberSaveable { mutableStateOf(false) }
+    val expansionScope = rememberCoroutineScope()
+    val expansion = remember { PlayerExpansion(expansionScope, savedExpanded) }
+    var miniBounds by remember { mutableStateOf(Rect.Zero) }
+    // Not the fraction itself: reading that here would recompose the whole shell every frame.
+    val playerShowing by remember { derivedStateOf { expansion.fraction > 0f } }
     var addToPlaylist by remember { mutableStateOf<List<UUID>?>(null) }
     val reselects = remember { MutableSharedFlow<Tab>(extraBufferCapacity = 1) }
     val playerState by container.player.state.collectAsStateWithLifecycle()
@@ -132,7 +142,7 @@ fun MainScreen() {
 
             /** Switches to the tab that owns the destination and opens it from that tab's root, as iOS does. */
             private fun showIn(target: Tab, route: Route) {
-                showFullPlayer = false
+                expansion.collapse()
                 tab = target
                 stacks.getValue(target).apply {
                     popToRoot()
@@ -144,7 +154,7 @@ fun MainScreen() {
             override fun showAlbum(id: UUID) = showIn(Tab.Albums, Route.Album(id))
             override fun showPlaylist(id: UUID) = showIn(Tab.Playlists, Route.Playlist(id))
             override fun addToPlaylist(trackIds: List<UUID>) { addToPlaylist = trackIds }
-            override fun showFullPlayer() { showFullPlayer = true }
+            override fun showFullPlayer() = expansion.expand()
         }
     }
 
@@ -207,40 +217,42 @@ fun MainScreen() {
                         }
                     }
                     MiniPlayer(
-                        onOpen = { showFullPlayer = true },
+                        onOpen = expansion::expand,
                         // Stretched across a landscape phone or a tablet it reads as a banner, not a player.
-                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = bottomInset).widthIn(max = 640.dp),
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = bottomInset).widthIn(max = 640.dp)
+                            .onGloballyPositioned { miniBounds = it.boundsInRoot() }
+                            // The copy in the expanding player stands in for it as soon as that starts.
+                            .graphicsLayer { alpha = if (expansion.fraction > 0f) 0f else 1f }
+                            .draggable(
+                                orientation = Orientation.Vertical,
+                                state = rememberDraggableState { delta -> expansion.dragBy(-delta / miniBounds.top.coerceAtLeast(1f)) },
+                                onDragStopped = { velocity -> expansion.release(-velocity / miniBounds.top.coerceAtLeast(1f)) },
+                            ),
                     )
                 }
             }
 
-            AnimatedVisibility(
-                visible = showFullPlayer && hasMiniPlayer,
-                enter = slideInVertically(tween(300)) { it },
-                exit = slideOutVertically(tween(250)) { it },
-            ) {
-                BackHandler { showFullPlayer = false }
-                FullPlayerScreen(onClose = { showFullPlayer = false })
-            }
+            if (hasMiniPlayer && playerShowing) ExpandingPlayer(expansion, miniBounds)
 
             PlayerFeedback()
-            MainSnackbarHost(Modifier.align(Alignment.BottomCenter).playerSnackbarPadding(showFullPlayer && hasMiniPlayer, hasMiniPlayer, navigationLayout()))
+            MainSnackbarHost(Modifier.align(Alignment.BottomCenter).playerSnackbarPadding(expansion.expanded && hasMiniPlayer, hasMiniPlayer, navigationLayout()))
             PlaylistSyncErrorDialog()
         }
         addToPlaylist?.let { ids -> AddToPlaylistSheet(ids, onDismiss = { addToPlaylist = null }) }
     }
 
-    LaunchedEffect(hasMiniPlayer) { if (!hasMiniPlayer) showFullPlayer = false }
+    LaunchedEffect(hasMiniPlayer) { if (!hasMiniPlayer) expansion.hide() }
+    LaunchedEffect(expansion.expanded) { savedExpanded = expansion.expanded }
 
     val launchAction by container.launchActions.current.collectAsStateWithLifecycle()
     LaunchedEffect(launchAction) {
         when (container.launchActions.consume()) {
             LaunchAction.Search -> {
-                showFullPlayer = false
+                expansion.collapse()
                 tab = Tab.Search
             }
             LaunchAction.Downloads -> {
-                showFullPlayer = false
+                expansion.collapse()
                 navigator.push(Route.Downloads)
             }
             LaunchAction.ShuffleAll -> {
@@ -248,7 +260,7 @@ fun MainScreen() {
                 val tracks = container.library.allTracks().filter { online || it.isDownloaded }
                 if (tracks.isNotEmpty()) {
                     container.player.requestPlay { container.player.playShuffled(tracks) }
-                    showFullPlayer = true
+                    expansion.expand()
                 }
             }
             null -> Unit

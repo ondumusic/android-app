@@ -3,16 +3,14 @@ package com.ondumusic.player.ui.player
 import androidx.core.view.WindowCompat
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import android.app.Activity
-import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,7 +25,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -61,11 +58,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -73,8 +67,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
@@ -82,7 +76,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.materialkolor.PaletteStyle
@@ -95,19 +88,21 @@ import com.ondumusic.player.player.PlayerService
 import com.ondumusic.player.ui.LocalContainer
 import com.ondumusic.player.ui.components.TrackActionSheet
 import com.ondumusic.player.ui.navigation.LocalNavigator
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 
 /**
- * Now playing, over everything else. Drag it down or press back to return to the app.
+ * Now playing, over everything else. [ExpandingPlayer] grows it out of the mini player and
+ * handles the drag and back gesture that put it away.
  *
  * There is deliberately no volume slider: Android's volume keys and the system volume
  * panel already own media volume, and an in-app slider here would scale a second gain
  * stage on top of it.
  */
 @Composable
-fun FullPlayerScreen(onClose: () -> Unit) {
+fun FullPlayerScreen(onClose: () -> Unit, coversStatusBar: () -> Boolean, contentAlpha: () -> Float) {
     val container = LocalContainer.current
     val player = container.player
     val state by player.state.collectAsStateWithLifecycle()
@@ -120,38 +115,36 @@ fun FullPlayerScreen(onClose: () -> Unit) {
     var showQueue by rememberSaveable { mutableStateOf(false) }
     var showActions by rememberSaveable { mutableStateOf(false) }
 
-    LightSystemBarIcons(enabled = tinted || isSystemInDarkTheme())
+    LightSystemBarIcons(wanted = tinted || isSystemInDarkTheme(), coversStatusBar)
     PlayerTheme(tinted, seed) {
-        DragToDismiss(onClose) {
-            Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
-                if (tinted) ArtworkBackdrop(artworkUrl, Modifier.matchParentSize())
-                BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-                    // Side by side once the window is wider than tall and has room for both:
-                    // landscape phones, unfolded foldables, tablets.
-                    val wide = maxWidth > maxHeight && maxWidth >= 560.dp
-                    val short = maxHeight < 420.dp
-                    Column(Modifier.fillMaxSize()) {
-                        TopBar(onClose = onClose, onMore = { showActions = true }, hasTrack = state.currentTrack != null)
-                        if (wide) {
-                            Row(Modifier.fillMaxSize().padding(start = 24.dp, end = 24.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
-                                    Cover(artworkUrl)
-                                }
-                                Spacer(Modifier.size(32.dp))
-                                Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.Center) {
-                                    Controls(state, compact = short, onQueue = { showQueue = true })
-                                }
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+            if (tinted) ArtworkBackdrop(artworkUrl, Modifier.matchParentSize())
+            BoxWithConstraints(Modifier.fillMaxSize().graphicsLayer { alpha = contentAlpha() }.windowInsetsPadding(WindowInsets.safeDrawing)) {
+                // Side by side once the window is wider than tall and has room for both:
+                // landscape phones, unfolded foldables, tablets.
+                val wide = maxWidth > maxHeight && maxWidth >= 560.dp
+                val short = maxHeight < 420.dp
+                Column(Modifier.fillMaxSize()) {
+                    TopBar(onClose = onClose, onMore = { showActions = true }, hasTrack = state.currentTrack != null)
+                    if (wide) {
+                        Row(Modifier.fillMaxSize().padding(start = 24.dp, end = 24.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+                                Cover(artworkUrl)
                             }
-                        } else {
-                            Box(
-                                Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Cover(artworkUrl, Modifier.widthIn(max = 560.dp))
+                            Spacer(Modifier.size(32.dp))
+                            Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.Center) {
+                                Controls(state, compact = short, onQueue = { showQueue = true })
                             }
-                            Column(Modifier.widthIn(max = 640.dp).align(Alignment.CenterHorizontally).padding(bottom = 8.dp)) {
-                                Controls(state, compact = false, onQueue = { showQueue = true })
-                            }
+                        }
+                    } else {
+                        Box(
+                            Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Cover(artworkUrl, Modifier.widthIn(max = 560.dp))
+                        }
+                        Column(Modifier.widthIn(max = 640.dp).align(Alignment.CenterHorizontally).padding(bottom = 8.dp)) {
+                            Controls(state, compact = false, onQueue = { showQueue = true })
                         }
                     }
                 }
@@ -190,54 +183,33 @@ private val NEUTRAL_SEED = Color(0xFF9E9E9E)
 
 /**
  * The tinted player is dark whatever the system theme, so in light mode the status bar's
- * dark icons would vanish into it. Set for as long as the player is showing, then handed
+ * dark icons would vanish into it. Set while the player covers the status bar, then handed
  * back to what the app's own theme wants.
+ *
+ * [coversStatusBar] is read in an effect rather than passed as a value: recomposing the
+ * player at the moment the bars change appearance rebuilt its artwork, which blinked.
  */
 @Composable
-private fun LightSystemBarIcons(enabled: Boolean) {
+private fun LightSystemBarIcons(wanted: Boolean, coversStatusBar: () -> Boolean) {
     val view = LocalView.current
     val appIsDark = isSystemInDarkTheme()
-    DisposableEffect(view, enabled, appIsDark) {
+    val covers by rememberUpdatedState(coversStatusBar)
+    DisposableEffect(view, wanted, appIsDark) {
         val window = (view.context as? Activity)?.window ?: return@DisposableEffect onDispose {}
         val controller = WindowCompat.getInsetsController(window, view)
-        controller.isAppearanceLightStatusBars = !enabled
-        controller.isAppearanceLightNavigationBars = !enabled
+        val scope = CoroutineScope(Dispatchers.Main.immediate)
+        scope.launch {
+            snapshotFlow { wanted && covers() }.collect { light ->
+                controller.isAppearanceLightStatusBars = if (light) false else !appIsDark
+                controller.isAppearanceLightNavigationBars = if (light) false else !appIsDark
+            }
+        }
         onDispose {
+            scope.cancel()
             controller.isAppearanceLightStatusBars = !appIsDark
             controller.isAppearanceLightNavigationBars = !appIsDark
         }
     }
-}
-
-/**
- * Pull the player down to put it away, like a sheet. Released past a quarter of the way,
- * or flung, it closes from where it is; otherwise it springs back.
- */
-@Composable
-private fun DragToDismiss(onClose: () -> Unit, content: @Composable () -> Unit) {
-    // Plain state, written synchronously by the drag: a coroutine per movement could land
-    // after the spring back had started, cancel it, and leave the player stuck part way down.
-    var offset by remember { mutableFloatStateOf(0f) }
-    var settle by remember { mutableStateOf<Job?>(null) }
-    val scope = rememberCoroutineScope()
-    var height by remember { mutableIntStateOf(0) }
-    Box(
-        Modifier
-            .fillMaxSize()
-            .onSizeChanged { height = it.height }
-            .draggable(
-                orientation = Orientation.Vertical,
-                state = rememberDraggableState { delta -> offset = (offset + delta).coerceAtLeast(0f) },
-                onDragStarted = { settle?.cancel() },
-                onDragStopped = { velocity ->
-                    if (offset > height * 0.25f || velocity > 2_000f) onClose()
-                    else settle = scope.launch {
-                        animate(offset, 0f, animationSpec = spring(stiffness = 600f)) { value, _ -> offset = value }
-                    }
-                },
-            )
-            .offset { IntOffset(0, offset.roundToInt()) },
-    ) { content() }
 }
 
 @Composable
