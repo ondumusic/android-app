@@ -17,10 +17,6 @@
     <string name="settings_tinted_player_footer">Colors the player background based on the current track’s album artwork.</string>
     <string name="settings_haptics">Haptic Feedback</string>
     <string name="settings_accent">Accent Color</string>
-    <string name="settings_accent_footer">Colors the app is built around. The rest of the palette is derived from it.</string>
-    <string name="settings_accent_wallpaper_footer">Takes the app’s colors from your wallpaper, like the rest of your phone.</string>
-    <string name="settings_hue">Hue</string>
-    <string name="settings_saturation">Saturation</string>
     <string name="accent_blue">Blue</string>
     <string name="accent_indigo">Indigo</string>
     <string name="accent_purple">Purple</string>
@@ -31,7 +27,6 @@
     <string name="accent_green">Green</string>
     <string name="accent_teal">Teal</string>
     <string name="accent_wallpaper">Wallpaper colors</string>
-    <string name="accent_custom">Custom color</string>
 
     <string name="settings_cache">Playback Cache</string>
     <string name="settings_cache_limit">Cache Limit</string>

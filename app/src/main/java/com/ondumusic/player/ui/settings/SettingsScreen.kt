@@ -2,8 +2,11 @@ package com.ondumusic.player.ui.settings
 
 import android.text.format.DateUtils
 import android.text.format.Formatter
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,10 +21,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -42,10 +43,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -176,54 +174,62 @@ private fun AppearanceSection(settings: SettingsStore) {
     val tinted by settings.artworkTintedPlayer.flow.collectAsStateWithLifecycle()
     val haptics by settings.hapticsEnabled.flow.collectAsStateWithLifecycle()
     val accent by settings.accentColor.flow.collectAsStateWithLifecycle()
-    val custom by settings.customAccentColor.flow.collectAsStateWithLifecycle()
-    var editingCustom by remember { mutableStateOf(false) }
 
     SectionHeader(stringResource(R.string.settings_appearance))
     SwitchRow(stringResource(R.string.settings_tinted_player), tinted, { settings.artworkTintedPlayer.value = it },
         supporting = stringResource(R.string.settings_tinted_player_footer))
     SwitchRow(stringResource(R.string.settings_haptics), haptics, { settings.hapticsEnabled.value = it })
 
-    ListItem(headlineContent = { Text(stringResource(R.string.settings_accent)) })
-    FlowRow(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.settings_accent)) },
+        supportingContent = { Text(stringResource(accent.labelRes())) },
+    )
+    FlowRow(
+        Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
         AccentColor.entries.forEach { option ->
-            val selected = option == accent
-            val description = stringResource(option.labelRes())
-            val fill = when (option) {
-                AccentColor.Wallpaper -> Brush.sweepGradient(listOf(Color(0xFF8AB4F8), Color(0xFFF28B82), Color(0xFFFDD663), Color(0xFF81C995), Color(0xFF8AB4F8)))
-                AccentColor.Custom -> Brush.sweepGradient(listOf(Color.Red, Color.Yellow, Color.Green, Color.Cyan, Color.Blue, Color.Magenta, Color.Red))
-                else -> Brush.linearGradient(listOf(option.accentSeed(false, Color(custom)), option.accentSeed(false, Color(custom))))
-            }
-            Box(
-                Modifier.size(40.dp).clip(CircleShape).background(fill)
-                    .border(if (selected) 3.dp else 0.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
-                    .selectable(selected, role = Role.RadioButton) {
-                        if (option == AccentColor.Custom) editingCustom = true else settings.accentColor.value = option
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
-                if (option == AccentColor.Custom) Box(Modifier.size(24.dp).clip(CircleShape).background(Color(custom)))
-                if (selected) Icon(Icons.Filled.Check, contentDescription = description, tint = Color.White, modifier = Modifier.size(18.dp))
-            }
+            AccentSwatch(option, selected = option == accent) { settings.accentColor.value = option }
         }
     }
-    Spacer(Modifier.height(8.dp))
-    Footer(stringResource(if (accent == AccentColor.Wallpaper) R.string.settings_accent_wallpaper_footer else R.string.settings_accent_footer))
+}
 
-    if (editingCustom) {
-        CustomColorDialog(
-            initial = Color(custom),
-            onDismiss = { editingCustom = false },
-            onPick = {
-                settings.customAccentColor.value = it.toArgb()
-                settings.accentColor.value = AccentColor.Custom
-                editingCustom = false
-            },
-        )
+/**
+ * The wallpaper option previews the wallpaper's own colours, split the way Android's
+ * wallpaper picker shows a palette, so it reads as "the phone's colours" rather than as
+ * one more colour.
+ */
+@Composable
+private fun AccentSwatch(option: AccentColor, selected: Boolean, onClick: () -> Unit) {
+    val context = LocalContext.current
+    val label = stringResource(option.labelRes())
+    val wallpaper = remember(option) {
+        if (option == AccentColor.Wallpaper) dynamicLightColorScheme(context) else null
+    }
+    val outline = MaterialTheme.colorScheme.onSurface
+    Box(
+        Modifier.size(44.dp)
+            .selectable(selected, role = Role.RadioButton, onClick = onClick)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.size(40.dp)) {
+            if (wallpaper != null) {
+                drawArc(wallpaper.primary, 180f, 180f, useCenter = true)
+                drawArc(wallpaper.tertiary, 0f, 90f, useCenter = true)
+                drawArc(wallpaper.secondary, 90f, 90f, useCenter = true)
+            } else {
+                drawCircle(option.accentSeed(dark = false))
+            }
+            if (selected) drawCircle(outline, style = Stroke(width = 3.dp.toPx()))
+        }
+        if (selected) Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
     }
 }
 
 private fun AccentColor.labelRes(): Int = when (this) {
+    AccentColor.Wallpaper -> R.string.accent_wallpaper
     AccentColor.Blue -> R.string.accent_blue
     AccentColor.Indigo -> R.string.accent_indigo
     AccentColor.Purple -> R.string.accent_purple
@@ -233,33 +239,6 @@ private fun AccentColor.labelRes(): Int = when (this) {
     AccentColor.Yellow -> R.string.accent_yellow
     AccentColor.Green -> R.string.accent_green
     AccentColor.Teal -> R.string.accent_teal
-    AccentColor.Wallpaper -> R.string.accent_wallpaper
-    AccentColor.Custom -> R.string.accent_custom
-}
-
-/** Hue and saturation sliders over a preview; brightness is left to the theme, which derives its own tones. */
-@Composable
-private fun CustomColorDialog(initial: Color, onDismiss: () -> Unit, onPick: (Color) -> Unit) {
-    val hsv = remember { FloatArray(3).also { android.graphics.Color.colorToHSV(initial.toArgb(), it) } }
-    var hue by remember { mutableFloatStateOf(hsv[0]) }
-    var saturation by remember { mutableFloatStateOf(hsv[1].coerceAtLeast(0.3f)) }
-    val color = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, saturation, 1f)))
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Outlined.Palette, contentDescription = null) },
-        title = { Text(stringResource(R.string.accent_custom)) },
-        text = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(Modifier.size(56.dp).clip(CircleShape).background(color))
-                Text(stringResource(R.string.settings_hue), Modifier.fillMaxWidth().padding(top = 16.dp))
-                Slider(value = hue, onValueChange = { hue = it }, valueRange = 0f..360f)
-                Text(stringResource(R.string.settings_saturation), Modifier.fillMaxWidth())
-                Slider(value = saturation, onValueChange = { saturation = it }, valueRange = 0.3f..1f)
-            }
-        },
-        confirmButton = { TextButton(onClick = { onPick(color) }) { Text(stringResource(R.string.done)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
-    )
 }
 
 @Composable

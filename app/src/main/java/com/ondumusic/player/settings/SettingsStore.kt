@@ -26,13 +26,13 @@ enum class StreamingQuality(val raw: String) {
 }
 
 /**
- * [Wallpaper] is Android's own: Material You's colours taken from the wallpaper. The
- * rest match iOS, with [Blue] being the app icon's blue rather than a system one.
+ * [Wallpaper] is Android's own: Material You's colours taken from the wallpaper, the way the
+ * rest of the phone is coloured. The presets match iOS, with [Blue] being the app icon's blue.
+ * iOS's free colour picker isn't offered: Android apps follow the wallpaper rather than ask.
  */
 enum class AccentColor(val raw: String) {
-    Blue("blue"), Indigo("indigo"), Purple("purple"), Pink("pink"), Red("red"),
-    Orange("orange"), Yellow("yellow"), Green("green"), Teal("teal"),
-    Wallpaper("wallpaper"), Custom("custom");
+    Wallpaper("wallpaper"), Blue("blue"), Indigo("indigo"), Purple("purple"), Pink("pink"),
+    Red("red"), Orange("orange"), Yellow("yellow"), Green("green"), Teal("teal");
 
     companion object {
         fun fromRaw(raw: String?) = entries.firstOrNull { it.raw == raw } ?: Blue
@@ -117,8 +117,6 @@ class SettingsStore(private val prefs: SharedPreferences) {
 
     val accentColor = enum("accentColor", AccentColor::fromRaw) { it.raw }
 
-    /** Packed ARGB, used when [accentColor] is [AccentColor.Custom]. Defaults to iOS's custom orange. */
-    val customAccentColor = int("customAccentColor", 0xFFFF6600.toInt())
 
     val hapticsEnabled = bool("hapticsEnabled", true)
 
