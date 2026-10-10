@@ -29,10 +29,13 @@ class SmartShuffleTest {
 
     @Test fun spreadsAnArtistAcrossTheQueue() {
         for (seed in 1..20) {
-            // 4 tracks by one artist among 56 one-off artists: ideal spacing is 15.
-            val artist = UUID.randomUUID()
-            val album = UUID.randomUUID()
-            val items = List(56) { makeItem(UUID.randomUUID(), UUID.randomUUID()) } +
+            // 4 tracks by one artist among 56 one-off artists: ideal spacing is 15. The ids come
+            // from the seed too: grouping orders by id, so random ids made the seed meaningless.
+            val ids = Random(seed * 1000)
+            fun id() = UUID(ids.nextLong(), ids.nextLong())
+            val artist = id()
+            val album = id()
+            val items = List(56) { makeItem(id(), id()) } +
                 List(4) { makeItem(artist, album) }
             val order = SmartShuffle.shuffledIndices(items, Random(seed))
             val ranks = order.indices.filter { items[order[it]].track.albumArtistId == artist }
