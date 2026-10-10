@@ -62,7 +62,6 @@ import com.ondumusic.player.ui.components.EmptyState
 import com.ondumusic.player.ui.components.ScreenScaffold
 import com.ondumusic.player.ui.components.TrackRow
 import com.ondumusic.player.ui.navigation.LocalNavigator
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -74,9 +73,7 @@ fun PlaylistScreen(id: UUID) {
     val navigator = LocalNavigator.current
     val playlistId = rememberFollowedPlaylistId(id)
     val playlist by remember(playlistId) { library.observePlaylist(playlistId) }.collectAsStateWithLifecycle(null)
-    val entries by remember(playlistId) {
-        combine(library.observePlaylistItems(playlistId), library.observeTracksForPlaylist(playlistId), ::playlistEntries)
-    }.collectAsStateWithLifecycle(null)
+    val entries by remember(playlistId) { container.visiblePlaylistEntries(playlistId) }.collectAsStateWithLifecycle(null)
     val online by container.network.isOnline.collectAsStateWithLifecycle()
     val playerState by container.player.state.collectAsStateWithLifecycle()
     val playingItemId = playerState.currentItem?.id
@@ -109,7 +106,8 @@ fun PlaylistScreen(id: UUID) {
             else player.playNowQueue(queue, startingAt = start?.let { s -> queue.indexOfFirst { it.id == s.item.id } }?.coerceAtLeast(0) ?: 0)
         }
     }
-    fun remove(entry: PlaylistEntry) = container.scope.launch { container.playlists.removeItem(entry.item.id, playlistId) }
+    val removeItem = rememberRemoveFromPlaylist()
+    val deletePlaylist = rememberDeletePlaylist()
 
     ScreenScaffold(
         title = playlist?.name.orEmpty(),
@@ -143,7 +141,11 @@ fun PlaylistScreen(id: UUID) {
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.playlist_delete), color = MaterialTheme.colorScheme.error) },
                     leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-                    onClick = { menuOpen = false; dialog = PlaylistDialog.Delete(current) },
+                    onClick = {
+                        menuOpen = false
+                        deletePlaylist(current)
+                        navigator.pop()
+                    },
                 )
             }
         },
@@ -166,7 +168,7 @@ fun PlaylistScreen(id: UUID) {
                     dragging = dragging,
                     reorder = reorder,
                     onPlay = { play(start = entry) },
-                    onRemove = { remove(entry) },
+                    onRemove = { removeItem(entry.item) },
                     modifier = if (dragging) Modifier.zIndex(1f).graphicsLayer { translationY = reorder.offset }
                     else Modifier.animateItem(),
                 )
@@ -177,7 +179,7 @@ fun PlaylistScreen(id: UUID) {
         }
     }
 
-    PlaylistDialogHost(dialog, onDismiss = { dialog = null }, onDeleted = navigator::pop)
+    PlaylistDialogHost(dialog, onDismiss = { dialog = null })
 }
 
 @Composable

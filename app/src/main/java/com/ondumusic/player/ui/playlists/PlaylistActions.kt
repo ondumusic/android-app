@@ -26,6 +26,13 @@ import com.ondumusic.player.ui.LocalContainer
 import com.ondumusic.player.ui.components.Action
 import com.ondumusic.player.ui.components.ActionSheet
 import com.ondumusic.player.model.Playlist
+import com.ondumusic.player.model.PlaylistItem
+import com.ondumusic.player.service.PendingPlaylistEdits
+import com.ondumusic.player.ui.components.AppSnackbars
+import com.ondumusic.player.ui.components.LocalSnackbars
+import androidx.compose.runtime.remember
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -45,8 +52,48 @@ fun queueItems(entries: List<PlaylistEntry>, online: Boolean): List<QueueItem> =
  */
 private fun List<QueueItem>.withFreshIds() = map { it.copy(id = UUID.randomUUID()) }
 
-private suspend fun AppContainer.playableEntries(playlistId: UUID): List<QueueItem> =
-    queueItems(playlistEntries(library.playlistItems(playlistId), library.tracksForPlaylist(playlistId)), network.isOnline.value)
+private suspend fun AppContainer.playableEntries(playlistId: UUID): List<QueueItem> {
+    val hidden = playlistEdits.hidden.value
+    val items = library.playlistItems(playlistId).filterNot(hidden::hides)
+    return queueItems(playlistEntries(items, library.tracksForPlaylist(playlistId)), network.isOnline.value)
+}
+
+/** Every playlist and folder, less those deleted while their undo snackbar still shows. */
+fun AppContainer.visiblePlaylists(): Flow<List<Playlist>> =
+    combine(library.observePlaylists(), playlistEdits.hidden) { all, hidden -> withoutDeleted(all, hidden.playlistIds) }
+
+/** A playlist's songs in order, less those removed while their undo snackbar still shows. */
+fun AppContainer.visiblePlaylistEntries(playlistId: UUID): Flow<List<PlaylistEntry>> =
+    combine(library.observePlaylistItems(playlistId), library.observeTracksForPlaylist(playlistId), playlistEdits.hidden) { items, tracks, hidden ->
+        playlistEntries(items.filterNot(hidden::hides), tracks)
+    }
+
+/**
+ * Removes a song from its playlist at once, with an Undo snackbar. Nothing is written or
+ * sent until the snackbar goes, so undoing leaves no trace on the server.
+ */
+@Composable
+fun rememberRemoveFromPlaylist(): (PlaylistItem) -> Unit {
+    val edits = LocalContainer.current.playlistEdits
+    val snackbars = LocalSnackbars.current
+    val message = stringResource(R.string.playlist_item_removed)
+    return remember(edits, snackbars, message) { { item -> snackbars.offerUndo(edits, edits.removeItem(item), message) } }
+}
+
+/** Deletes a playlist or folder at once, with an Undo snackbar; held back like a removed song. */
+@Composable
+fun rememberDeletePlaylist(): (Playlist) -> Unit {
+    val edits = LocalContainer.current.playlistEdits
+    val snackbars = LocalSnackbars.current
+    val playlistMessage = stringResource(R.string.playlist_deleted)
+    val folderMessage = stringResource(R.string.folder_deleted)
+    return remember(edits, snackbars, playlistMessage, folderMessage) {
+        { playlist -> snackbars.offerUndo(edits, edits.deletePlaylist(playlist), if (playlist.isFolder) folderMessage else playlistMessage) }
+    }
+}
+
+private fun AppSnackbars.offerUndo(edits: PendingPlaylistEdits, token: PendingPlaylistEdits.Token, message: String) =
+    showUndo(message, edits.isPending(token), onUndo = { edits.undo(token) }, onExpired = { edits.commit(token) })
 
 /** What a long press or the overflow button offers on a playlist or folder row. */
 @Composable

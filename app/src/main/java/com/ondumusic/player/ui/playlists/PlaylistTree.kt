@@ -30,6 +30,13 @@ fun descendantIds(all: List<Playlist>, id: UUID): Set<UUID> {
     return found
 }
 
+/** [all] without the playlists in [deleted] and everything inside them, which goes with a folder. */
+fun withoutDeleted(all: List<Playlist>, deleted: Set<UUID>): List<Playlist> {
+    if (deleted.isEmpty()) return all
+    val gone = deleted.flatMapTo(mutableSetOf()) { descendantIds(all, it) }
+    return all.filterNot { it.id in gone }
+}
+
 data class FolderDestination(val folder: Playlist, val depth: Int)
 
 /**

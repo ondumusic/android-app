@@ -109,27 +109,12 @@ fun PlaylistNameDialog(mode: NameDialogMode, onDismiss: () -> Unit, onSave: (Str
     LaunchedEffect(Unit) { focus.requestFocus() }
 }
 
-@Composable
-fun DeletePlaylistDialog(playlist: Playlist, onDismiss: () -> Unit, onConfirm: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.playlist_delete_title, playlist.name)) },
-        text = { Text(stringResource(if (playlist.isFolder) R.string.folder_delete_message else R.string.playlist_delete_message)) },
-        confirmButton = {
-            TextButton(onClick = { onDismiss(); onConfirm() }) {
-                Text(stringResource(if (playlist.isFolder) R.string.folder_delete else R.string.playlist_delete), color = MaterialTheme.colorScheme.error)
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.playlist_cancel)) } },
-    )
-}
-
 /** Picks the folder to move [playlist] into, or the top level. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MovePlaylistSheet(playlist: Playlist, onDismiss: () -> Unit) {
     val container = LocalContainer.current
-    val all by remember { container.library.observePlaylists() }.collectAsStateWithLifecycle(null)
+    val all by remember { container.visiblePlaylists() }.collectAsStateWithLifecycle(null)
     val destinations = remember(all, playlist) { all?.let { moveDestinations(it, playlist) }.orEmpty() }
     val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -188,11 +173,10 @@ sealed interface PlaylistDialog {
     data class Create(val isFolder: Boolean, val parentId: UUID?) : PlaylistDialog
     data class Rename(val playlist: Playlist) : PlaylistDialog
     data class Move(val playlist: Playlist) : PlaylistDialog
-    data class Delete(val playlist: Playlist) : PlaylistDialog
 }
 
 @Composable
-fun PlaylistDialogHost(dialog: PlaylistDialog?, onDismiss: () -> Unit, onDeleted: () -> Unit = {}) {
+fun PlaylistDialogHost(dialog: PlaylistDialog?, onDismiss: () -> Unit) {
     val container = LocalContainer.current
     val playlists = container.playlists
     // The dialog closes as the action starts, so the work can't live in its scope.
@@ -213,9 +197,5 @@ fun PlaylistDialogHost(dialog: PlaylistDialog?, onDismiss: () -> Unit, onDeleted
             onSave = { name -> run { playlists.renamePlaylist(dialog.playlist.id, name) } },
         )
         is PlaylistDialog.Move -> MovePlaylistSheet(dialog.playlist, onDismiss)
-        is PlaylistDialog.Delete -> DeletePlaylistDialog(dialog.playlist, onDismiss) {
-            run { playlists.deletePlaylist(dialog.playlist.id) }
-            onDeleted()
-        }
     }
 }

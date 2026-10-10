@@ -29,10 +29,10 @@
     <string name="playlist_save">Save</string>
     <string name="playlist_cancel">Cancel</string>
 
-    <!-- Delete confirmation -->
-    <string name="playlist_delete_title">Delete %1$s?</string>
-    <string name="playlist_delete_message">This will permanently delete the playlist.</string>
-    <string name="folder_delete_message">This will permanently delete the folder and everything inside it.</string>
+    <!-- Undo -->
+    <string name="playlist_item_removed">Removed from playlist</string>
+    <string name="playlist_deleted">Playlist deleted</string>
+    <string name="folder_deleted">Folder deleted</string>
 
     <!-- Move -->
     <string name="playlist_move_title">Move Playlist</string>

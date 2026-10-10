@@ -45,10 +45,11 @@ import java.util.UUID
 /** The root list, or a folder's contents when [folderId] is set. */
 @Composable
 fun PlaylistsScreen(actions: @Composable () -> Unit, folderId: UUID? = null) {
-    val library = LocalContainer.current.library
+    val container = LocalContainer.current
     val navigator = LocalNavigator.current
     val parentId = folderId?.let { rememberFollowedPlaylistId(it) }
-    val all by remember { library.observePlaylists() }.collectAsStateWithLifecycle(null)
+    val all by remember { container.visiblePlaylists() }.collectAsStateWithLifecycle(null)
+    val delete = rememberDeletePlaylist()
     val entries = remember(all, parentId) { all?.let { childrenOf(it, parentId) } }
     val counts = remember(all) { childCounts(all.orEmpty()) }
     val folder = remember(all, parentId) { parentId?.let { id -> all?.find { it.id == id } } }
@@ -90,7 +91,7 @@ fun PlaylistsScreen(actions: @Composable () -> Unit, folderId: UUID? = null) {
             onDismiss = { actionsFor = null },
             onRename = { dialog = PlaylistDialog.Rename(entry) },
             onMove = { dialog = PlaylistDialog.Move(entry) },
-            onDelete = { dialog = PlaylistDialog.Delete(entry) },
+            onDelete = { delete(entry) },
         )
     }
     PlaylistDialogHost(dialog, onDismiss = { dialog = null })

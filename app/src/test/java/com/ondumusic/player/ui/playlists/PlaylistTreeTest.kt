@@ -60,6 +60,18 @@ class PlaylistTreeTest {
         assertEquals(setOf(outer.id, inner.id, deep.id), descendantIds(listOf(outer, inner, deep, sibling), outer.id))
     }
 
+    /** Everything inside a deleted folder goes with it, so none of it can be picked as a destination meanwhile. */
+    @Test fun aDeletedFolderHidesWhatIsInsideIt() {
+        val outer = playlist("Outer", folder = true)
+        val inner = playlist("Inner", outer, folder = true)
+        val deep = playlist("Deep", inner)
+        val sibling = playlist("Sibling")
+        val all = listOf(outer, inner, deep, sibling)
+
+        assertEquals(listOf(sibling), withoutDeleted(all, setOf(outer.id)))
+        assertEquals(all, withoutDeleted(all, emptySet()))
+    }
+
     @Test fun moveDestinationsExcludeAFolderAndItsDescendants() {
         val a = playlist("A", folder = true)
         val aChild = playlist("A child", a, folder = true)

@@ -45,7 +45,7 @@ import java.util.UUID
 fun AddToPlaylistSheet(trackIds: List<UUID>, onDismiss: () -> Unit) {
     val container = LocalContainer.current
     val playlists = container.playlists
-    val all by remember { container.library.observePlaylists() }.collectAsStateWithLifecycle(null)
+    val all by remember { container.visiblePlaylists() }.collectAsStateWithLifecycle(null)
     val targets = remember(all) { all?.let(::addTargets).orEmpty() }
     val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
