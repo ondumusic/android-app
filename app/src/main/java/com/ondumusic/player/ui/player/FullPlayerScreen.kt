@@ -4,7 +4,7 @@ import androidx.core.view.WindowCompat
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.runtime.DisposableEffect
 import android.app.Activity
-import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
@@ -61,6 +61,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -94,6 +95,7 @@ import com.ondumusic.player.player.PlayerService
 import com.ondumusic.player.ui.LocalContainer
 import com.ondumusic.player.ui.components.TrackActionSheet
 import com.ondumusic.player.ui.navigation.LocalNavigator
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -213,7 +215,10 @@ private fun LightSystemBarIcons(enabled: Boolean) {
  */
 @Composable
 private fun DragToDismiss(onClose: () -> Unit, content: @Composable () -> Unit) {
-    val offset = remember { Animatable(0f) }
+    // Plain state, written synchronously by the drag: a coroutine per movement could land
+    // after the spring back had started, cancel it, and leave the player stuck part way down.
+    var offset by remember { mutableFloatStateOf(0f) }
+    var settle by remember { mutableStateOf<Job?>(null) }
     val scope = rememberCoroutineScope()
     var height by remember { mutableIntStateOf(0) }
     Box(
@@ -222,15 +227,16 @@ private fun DragToDismiss(onClose: () -> Unit, content: @Composable () -> Unit) 
             .onSizeChanged { height = it.height }
             .draggable(
                 orientation = Orientation.Vertical,
-                state = rememberDraggableState { delta ->
-                    scope.launch { offset.snapTo((offset.value + delta).coerceAtLeast(0f)) }
-                },
+                state = rememberDraggableState { delta -> offset = (offset + delta).coerceAtLeast(0f) },
+                onDragStarted = { settle?.cancel() },
                 onDragStopped = { velocity ->
-                    if (offset.value > height * 0.25f || velocity > 2_000f) onClose()
-                    else offset.animateTo(0f, spring(stiffness = 600f))
+                    if (offset > height * 0.25f || velocity > 2_000f) onClose()
+                    else settle = scope.launch {
+                        animate(offset, 0f, animationSpec = spring(stiffness = 600f)) { value, _ -> offset = value }
+                    }
                 },
             )
-            .offset { IntOffset(0, offset.value.roundToInt()) },
+            .offset { IntOffset(0, offset.roundToInt()) },
     ) { content() }
 }
 
