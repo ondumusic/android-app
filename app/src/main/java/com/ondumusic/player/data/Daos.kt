@@ -141,6 +141,9 @@ interface TrackDao {
     @Query("$TRACK_SELECT WHERE t.isDownloaded = 1")
     fun observeDownloaded(): Flow<List<TrackRow>>
 
+    @Query("SELECT DISTINCT albumId FROM tracks WHERE isDownloaded = 1")
+    fun observeDownloadedAlbumIds(): Flow<List<UUID>>
+
     /** Items whose track is missing from the library are skipped, e.g. after a cascade delete of the track. */
     @Query("$TRACK_SELECT JOIN playlist_items pi ON pi.trackId = t.id WHERE pi.playlistId = :playlistId ORDER BY pi.position")
     fun observeForPlaylist(playlistId: UUID): Flow<List<TrackRow>>

@@ -8,6 +8,7 @@ import com.ondumusic.player.api.SyncPlaylist
 import com.ondumusic.player.api.SyncPlaylistItem
 import com.ondumusic.player.api.SyncTrack
 import com.ondumusic.player.model.Album
+import com.ondumusic.player.model.AlbumPlayStats
 import com.ondumusic.player.model.Artist
 import com.ondumusic.player.model.ArtworkVariant
 import com.ondumusic.player.model.Playlist
@@ -88,6 +89,13 @@ class MusicLibrary(
         db.albums().observeForArtist(artistId).map { rows -> rows.map { it.toAlbum() } }
 
     fun observeAlbum(id: UUID): Flow<Album?> = db.albums().observe(id).map { it?.toAlbum() }
+
+    /** Albums with at least one downloaded track — what the Downloaded filter shows. */
+    fun observeDownloadedAlbumIds(): Flow<Set<UUID>> = db.tracks().observeDownloadedAlbumIds().map { it.toSet() }
+
+    /** Only albums that have been played appear; the rest count as never played. */
+    fun observeAlbumPlayStats(): Flow<Map<UUID, AlbumPlayStats>> = db.albums().observePlayStats()
+        .map { rows -> rows.associate { it.albumId to AlbumPlayStats(it.playCount, it.lastPlayedAt) } }
 
     suspend fun album(id: UUID): Album? = db.albums().get(id)?.toAlbum()
 
