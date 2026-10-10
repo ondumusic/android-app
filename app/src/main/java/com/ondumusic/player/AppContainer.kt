@@ -7,15 +7,15 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
-import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
-import androidx.media3.datasource.cache.NoOpCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
+import coil3.SingletonImageLoader
 import com.ondumusic.player.api.ApiClient
 import com.ondumusic.player.auth.AuthService
 import com.ondumusic.player.auth.KeystoreTokenStore
 import com.ondumusic.player.data.LibraryDatabase
 import com.ondumusic.player.data.MusicLibrary
 import com.ondumusic.player.player.ExoPlaybackEngine
+import com.ondumusic.player.player.PlaybackCacheEvictor
 import com.ondumusic.player.player.PlaybackStateStore
 import com.ondumusic.player.player.PlayerService
 import com.ondumusic.player.player.SessionPlayer
@@ -49,6 +49,7 @@ class Session(
  */
 @OptIn(UnstableApi::class)
 class AppContainer(context: Context) {
+    private val appContext = context.applicationContext
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     val http: OkHttpClient = OkHttpClient.Builder()
@@ -70,12 +71,17 @@ class AppContainer(context: Context) {
         downloadTracks = { /* Downloads arrive in a later phase. */ },
     )
 
+    private val cacheEvictor = PlaybackCacheEvictor(settings.playbackCacheLimit.value)
+
     /** Streams cache as they play, up to the size the settings allow, least recently played going first. */
-    private val playbackCache = SimpleCache(
-        File(context.cacheDir, "playback"),
-        settings.playbackCacheLimit.value.let { if (it > 0) LeastRecentlyUsedCacheEvictor(it) else NoOpCacheEvictor() },
-        StandaloneDatabaseProvider(context),
-    )
+    private val playbackCache = SimpleCache(File(context.cacheDir, "playback"), cacheEvictor, StandaloneDatabaseProvider(context))
+
+    /** Bytes of audio cached from streaming, and how many tracks that covers. */
+    fun playbackCacheUsage(): Pair<Long, Int> = playbackCache.cacheSpace to playbackCache.keys.size
+
+    fun clearPlaybackCache() {
+        playbackCache.keys.toList().forEach(playbackCache::removeResource)
+    }
 
     private val engine = ExoPlaybackEngine(context, playbackCache) { auth.api.value?.sessionToken }
 
@@ -96,6 +102,7 @@ class AppContainer(context: Context) {
     val session: StateFlow<Session?> = _session.asStateFlow()
 
     init {
+        scope.launch { settings.playbackCacheLimit.flow.collect { cacheEvictor.limitBytes = it } }
         scope.launch {
             var hadSession = false
             auth.api.collect { api ->
@@ -109,6 +116,11 @@ class AppContainer(context: Context) {
                     // nobody signed in has nothing to discard.
                     if (hadSession) {
                         player.stopAndClear()
+                        clearPlaybackCache()
+                        SingletonImageLoader.get(appContext).apply {
+                            memoryCache?.clear()
+                            diskCache?.clear()
+                        }
                         player.clearPersistedState()
                         SyncService.clearState(syncPrefs)
                         library.clearAll(includingDownloads = true)
