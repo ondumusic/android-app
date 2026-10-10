@@ -343,6 +343,8 @@ class PlayerService(
     private fun finishQueue() {
         cancelLoading()
         engine.stop()
+        // Stopped, the engine has nothing to resume; play loads the cued track instead.
+        hasLoadedSource = false
         isPlaying = false
         isBuffering = false
         currentIndex = 0
