@@ -38,7 +38,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,7 +61,7 @@ fun MiniPlayer(onOpen: () -> Unit, modifier: Modifier = Modifier) {
     val state by player.state.collectAsStateWithLifecycle()
     val progress by player.progress.collectAsStateWithLifecycle()
     val track = state.currentTrack ?: return
-    val haptics = LocalHapticFeedback.current
+    val haptic = rememberPlayerHaptics()
     val scope = rememberCoroutineScope()
     val offset = remember { Animatable(0f) }
     val canGoBack = state.queue.isNotEmpty() && (progress > 3 || state.currentIndex > 0)
@@ -99,7 +98,7 @@ fun MiniPlayer(onOpen: () -> Unit, modifier: Modifier = Modifier) {
                             if (action == null) {
                                 offset.animateTo(0f, tween(200))
                             } else {
-                                haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                                haptic(HapticFeedbackType.SegmentTick)
                                 val out = if (dx < 0) -600f else 600f
                                 offset.animateTo(out, tween(150))
                                 action()

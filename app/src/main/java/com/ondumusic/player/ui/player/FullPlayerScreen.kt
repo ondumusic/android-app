@@ -322,13 +322,6 @@ private fun Scrubber(duration: Double, modifier: Modifier = Modifier) {
 
 /** Taps that feel like pressing a physical control, when the user hasn't turned haptics off. */
 @Composable
-internal fun rememberPlayerHaptics(): (HapticFeedbackType) -> Unit {
-    val enabled by LocalContainer.current.settings.hapticsEnabled.flow.collectAsStateWithLifecycle()
-    val haptics = LocalHapticFeedback.current
-    return remember(haptics) { { type -> if (enabled) haptics.performHapticFeedback(type) } }
-}
-
-@Composable
 private fun Transport(state: PlayerService.State, compact: Boolean) {
     val player = LocalContainer.current.player
     val haptic = rememberPlayerHaptics()
