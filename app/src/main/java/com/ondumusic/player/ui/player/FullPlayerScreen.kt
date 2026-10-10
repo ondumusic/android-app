@@ -105,15 +105,19 @@ fun FullPlayerScreen(onClose: () -> Unit) {
     val container = LocalContainer.current
     val player = container.player
     val state by player.state.collectAsStateWithLifecycle()
-    val tinted by container.settings.artworkTintedPlayer.flow.collectAsStateWithLifecycle()
+    val tintSetting by container.settings.artworkTintedPlayer.flow.collectAsStateWithLifecycle()
     val artworkUrl = state.currentItem?.artworkUrl
+    // Both halves matter: the setting is the user's choice, and a cover has to exist for there
+    // to be anything to wear.
+    val tinted = tintSetting && artworkUrl != null
     val seed = rememberArtworkSeedColor(artworkUrl.takeIf { tinted })
     var showQueue by rememberSaveable { mutableStateOf(false) }
     var showActions by rememberSaveable { mutableStateOf(false) }
 
-    PlayerTheme(seed) {
+    PlayerTheme(tinted, seed) {
         DragToDismiss(onClose) {
-            Box(Modifier.fillMaxSize().background(playerBackground(tinted = seed != null))) {
+            Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+                if (tinted) ArtworkBackdrop(artworkUrl, Modifier.matchParentSize())
                 BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
                     // Side by side once the window is wider than tall and has room for both:
                     // landscape phones, unfolded foldables, tablets.
@@ -154,19 +158,20 @@ fun FullPlayerScreen(onClose: () -> Unit) {
 }
 
 /**
- * The app's theme regrown from the cover's colour, the way Android's own media controls
- * take on the album art. It follows the system's light or dark mode like the rest of the
- * app, and animates so a new track eases into its colours instead of cutting.
+ * Over the cover's blurred backdrop the player is always dark, as on iOS: light text is what
+ * stays legible over an arbitrary dimmed image. Its accent is grown from the cover's own
+ * colour; a cover too grey to have one gets a neutral dark scheme instead of losing the tint.
+ * Untinted, it's simply the app's theme. Changes animate, so a new track eases in.
  */
 @Composable
-private fun PlayerTheme(seed: Color?, content: @Composable () -> Unit) {
+private fun PlayerTheme(tinted: Boolean, seed: Color?, content: @Composable () -> Unit) {
     val base = MaterialTheme.colorScheme
     val fromArtwork = rememberDynamicColorScheme(
-        seedColor = seed ?: base.primary,
-        isDark = isSystemInDarkTheme(),
-        style = PaletteStyle.TonalSpot,
+        seedColor = seed ?: NEUTRAL_SEED,
+        isDark = true,
+        style = if (seed != null) PaletteStyle.Vibrant else PaletteStyle.Neutral,
     )
-    val scheme = animateColorScheme(if (seed != null) fromArtwork else base)
+    val scheme = animateColorScheme(if (tinted) fromArtwork else base)
     MaterialTheme(colorScheme = scheme, typography = MaterialTheme.typography, shapes = MaterialTheme.shapes) {
         // The player draws its own background rather than sitting on a Surface, so text
         // has to be told which colour reads on it.
@@ -174,15 +179,7 @@ private fun PlayerTheme(seed: Color?, content: @Composable () -> Unit) {
     }
 }
 
-@Composable
-private fun playerBackground(tinted: Boolean): Brush {
-    val colors = MaterialTheme.colorScheme
-    return if (tinted) {
-        Brush.verticalGradient(listOf(colors.primaryContainer, colors.surfaceContainer, colors.surface))
-    } else {
-        Brush.verticalGradient(listOf(colors.surface, colors.surface))
-    }
-}
+private val NEUTRAL_SEED = Color(0xFF9E9E9E)
 
 /**
  * Pull the player down to put it away, like a sheet. Released past a quarter of the way,

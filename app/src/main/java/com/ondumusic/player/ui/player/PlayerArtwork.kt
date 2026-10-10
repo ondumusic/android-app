@@ -19,7 +19,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Shape
@@ -52,7 +59,7 @@ private class Shown(val url: String?, val image: ImageBitmap?)
  * cancels an older one, so a slow cover for a track already skipped past can't land late.
  */
 @Composable
-fun CrossfadingArtwork(url: String?, shape: Shape, modifier: Modifier = Modifier) {
+fun CrossfadingArtwork(url: String?, shape: Shape, modifier: Modifier = Modifier, pixels: Int = COVER_PIXELS) {
     val context = LocalContext.current
     var shown by remember { mutableStateOf<Shown?>(null) }
     LaunchedEffect(url) {
@@ -61,7 +68,7 @@ fun CrossfadingArtwork(url: String?, shape: Shape, modifier: Modifier = Modifier
             return@LaunchedEffect
         }
         if (shown?.url == url) return@LaunchedEffect
-        val request = ImageRequest.Builder(context).data(url).size(COVER_PIXELS).build()
+        val request = ImageRequest.Builder(context).data(url).size(pixels).build()
         val result = SingletonImageLoader.get(context).execute(request)
         // A missing cover shows the placeholder rather than holding on to the previous
         // track's, which would be a cover for the wrong music.
@@ -103,3 +110,32 @@ fun rememberArtworkSeedColor(url: String?): Color? {
     }
     return seed
 }
+
+/**
+ * The cover itself, blurred, as a player background — what iOS does too. A gradient from
+ * one extracted colour reduces a cover to its average hue: fine for a monochrome sleeve,
+ * muddy for a busy one. Blurring keeps the cover's own structure.
+ *
+ * A mid-size rendition is plenty, since blur hides detail. The radius has to suit the
+ * region rather than the image: too wide for a short strip and everything collapses into
+ * one colour.
+ */
+@Composable
+fun ArtworkBackdrop(url: String?, modifier: Modifier = Modifier, blurRadius: Dp = 48.dp, dimming: Float = 0.45f) {
+    Box(modifier.clipToBounds()) {
+        CrossfadingArtwork(
+            url, RectangleShape,
+            Modifier
+                .fillMaxSize()
+                // Overscaled before blurring: the blur samples past the edges, and without the
+                // slack it pulls in transparency and vignettes the corners.
+                .graphicsLayer { scaleX = 1.4f; scaleY = 1.4f }
+                .blur(blurRadius, BlurredEdgeTreatment.Rectangle),
+            pixels = BACKDROP_PIXELS,
+        )
+        // Keeps light text legible over whatever the cover happens to be.
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = dimming)))
+    }
+}
+
+private const val BACKDROP_PIXELS = 300
