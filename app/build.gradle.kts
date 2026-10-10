@@ -36,16 +36,21 @@ android {
         buildConfig = true
     }
 
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
-    }
-
     testOptions {
         unitTests.isReturnDefaultValues = true
+        unitTests.isIncludeAndroidResources = true
+        unitTests.all {
+            // Robolectric's Android 16 runtime reaches into JDK internals for shared memory.
+            it.jvmArgs("--add-exports", "java.base/jdk.internal.access=ALL-UNNAMED")
+        }
     }
 }
 
+
+// Pinned rather than whatever JDK runs Gradle: Robolectric can't run on JDK 25.
+kotlin {
+    jvmToolchain(21)
+}
 
 room {
     schemaDirectory("$projectDir/schemas")
@@ -88,4 +93,6 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
 }
