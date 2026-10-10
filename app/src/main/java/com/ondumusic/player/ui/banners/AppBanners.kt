@@ -27,6 +27,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,11 +47,18 @@ import com.ondumusic.player.model.ServerCompatibility
 import com.ondumusic.player.model.ServerNotice
 import com.ondumusic.player.ui.LocalContainer
 import com.ondumusic.player.ui.LocalSession
+import com.ondumusic.player.ui.downloads.DownloadNoticeHost
+import com.ondumusic.player.ui.downloads.LocalDownloadNoticeHost
+import com.ondumusic.player.ui.downloads.icon
+import com.ondumusic.player.ui.downloads.isOverridable
+import com.ondumusic.player.ui.downloads.message
+import com.ondumusic.player.ui.downloads.noticeReason
 import kotlinx.coroutines.launch
 
 /**
  * Strips across the top for what the user should know but can do without: an expired
- * session, something the server reports, an app and server that disagree. They sit above
+ * session, something the server reports, an app and server that disagree, downloads held
+ * up by the device. They sit above
  * the app rather than over it — a library that's already here still plays.
  */
 @Composable
@@ -65,12 +73,15 @@ fun WithAppBanners(content: @Composable () -> Unit) {
     val compatibility by sync.compatibility.collectAsStateWithLifecycle()
     var dismissedVersion by remember { mutableStateOf(prefs.getString(KEY_DISMISSED_VERSION, "").orEmpty()) }
     var showReAuth by remember { mutableStateOf(false) }
+    val downloads by container.downloads.state.collectAsStateWithLifecycle()
+    val noticeHost = remember { DownloadNoticeHost() }
+    val downloadNotice = downloads.noticeReason.takeIf { noticeHost.screensShowingNotice == 0 }
 
     // Asked for straight away, as iOS does; the strip stays for when it's put off.
     LaunchedEffect(expired) { showReAuth = expired }
 
     val showVersion = compatibility.shouldShow(dismissedVersion)
-    val any = expired || notices.isNotEmpty() || showVersion
+    val any = expired || notices.isNotEmpty() || showVersion || downloadNotice != null
 
     Column(Modifier.fillMaxSize()) {
         if (any) {
@@ -90,6 +101,15 @@ fun WithAppBanners(content: @Composable () -> Unit) {
                         TextButton(onClick = { container.scope.launch { sync.dismiss(notice) } }) { Text(stringResource(R.string.banner_dismiss)) }
                     }
                 }
+                downloadNotice?.let { reason ->
+                    Banner(reason.icon, reason.message(), warning = !reason.isOverridable) {
+                        if (reason.isOverridable) {
+                            TextButton(onClick = { container.scope.launch { container.downloads.ignoreBatterySaver() } }) {
+                                Text(stringResource(R.string.downloads_download_anyway))
+                            }
+                        }
+                    }
+                }
                 if (showVersion) {
                     Banner(Icons.Outlined.WarningAmber, compatibility.text(), warning = true) {
                         IconButton(onClick = {
@@ -102,7 +122,7 @@ fun WithAppBanners(content: @Composable () -> Unit) {
             }
         }
         Box(Modifier.weight(1f).then(if (any) Modifier.consumeWindowInsets(WindowInsets.statusBars) else Modifier)) {
-            content()
+            CompositionLocalProvider(LocalDownloadNoticeHost provides noticeHost) { content() }
         }
     }
     if (showReAuth) ReAuthDialog(onDismiss = { showReAuth = false })

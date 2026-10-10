@@ -20,6 +20,8 @@ import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -52,6 +54,7 @@ import com.ondumusic.player.R
 import com.ondumusic.player.ui.albums.AlbumsScreen
 import com.ondumusic.player.ui.components.LocalBottomContentPadding
 import com.ondumusic.player.ui.downloads.DownloadsScreen
+import com.ondumusic.player.ui.downloads.inProgressCount
 import com.ondumusic.player.ui.library.AlbumScreen
 import com.ondumusic.player.ui.library.ArtistScreen
 import com.ondumusic.player.ui.library.ArtistsScreen
@@ -170,8 +173,8 @@ fun MainScreen() {
                                     entry<Route.Songs> { SongsScreen(accountMenu) }
                                     entry<Route.Search> { SearchScreen(accountMenu) }
                                     entry<Route.Playlists> { PlaylistsScreen(accountMenu) }
-                                    entry<Route.Artist> { ArtistScreen(it.id) }
-                                    entry<Route.Album> { AlbumScreen(it.id) }
+                                    entry<Route.Artist> { ArtistScreen(it.id, downloadedOnly = it.downloadedOnly) }
+                                    entry<Route.Album> { AlbumScreen(it.id, downloadedOnly = it.downloadedOnly) }
                                     entry<Route.Playlist> { PlaylistScreen(it.id) }
                                     entry<Route.Folder> { PlaylistsScreen(accountMenu, folderId = it.id) }
                                     entry<Route.Settings> { SettingsScreen() }
@@ -206,12 +209,17 @@ fun MainScreen() {
 @Composable
 private fun AccountMenu(onDownloads: () -> Unit, onSettings: () -> Unit) {
     var open by remember { mutableStateOf(false) }
+    val downloads by LocalContainer.current.downloads.state.collectAsStateWithLifecycle()
+    val count = downloads.inProgressCount
     IconButton(onClick = { open = true }) {
-        Icon(Icons.Outlined.AccountCircle, contentDescription = stringResource(R.string.menu_account))
+        // A dot, as on iOS: a count of a thousand-song queue only crowds the toolbar, and the menu has it.
+        BadgedBox(badge = { if (count > 0) Badge() }) {
+            Icon(Icons.Outlined.AccountCircle, contentDescription = stringResource(R.string.menu_account))
+        }
     }
     DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
         DropdownMenuItem(
-            text = { Text(stringResource(R.string.menu_downloads)) },
+            text = { Text(if (count > 0) stringResource(R.string.menu_downloads_count, count) else stringResource(R.string.menu_downloads)) },
             leadingIcon = { Icon(Icons.Outlined.DownloadForOffline, contentDescription = null) },
             onClick = { open = false; onDownloads() },
         )
