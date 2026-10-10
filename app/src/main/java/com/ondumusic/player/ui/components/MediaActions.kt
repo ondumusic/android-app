@@ -24,6 +24,9 @@ import com.ondumusic.player.model.ArtworkSize
 import com.ondumusic.player.model.Playlist
 import com.ondumusic.player.model.Track
 import com.ondumusic.player.ui.LocalContainer
+import com.ondumusic.player.ui.downloads.albumDownloadActions
+import com.ondumusic.player.ui.downloads.artistDownloadActions
+import com.ondumusic.player.ui.downloads.trackDownloadActions
 import com.ondumusic.player.ui.navigation.LocalNavigator
 import kotlinx.coroutines.launch
 
@@ -85,7 +88,7 @@ fun TrackActionSheet(track: Track, onDismiss: () -> Unit, onPlay: (() -> Unit)? 
     ActionSheet(
         title = track.name,
         subtitle = listOfNotNull(track.artist.name, track.album?.name).joinToString(" · "),
-        groups = listOfNotNull(play) + queue.drop(1) + listOf(goTo) + extra,
+        groups = listOfNotNull(play) + queue.drop(1) + listOf(goTo, trackDownloadActions(track)) + extra,
         onDismiss = onDismiss,
         leading = { Artwork(track.album?.artworkUrl, Modifier.size(48.dp), cornerRadius = 4.dp) },
     )
@@ -99,7 +102,8 @@ fun AlbumActionSheet(album: Album, onDismiss: () -> Unit) {
     ActionSheet(
         title = album.name,
         subtitle = listOfNotNull(album.artistName, album.releaseYear?.toString()).joinToString(" · "),
-        groups = queueActions({ library.tracksForAlbum(album.id) }, album.artworkUrl, shuffle = true) + listOf(listOf(goToArtist)),
+        groups = queueActions({ library.tracksForAlbum(album.id) }, album.artworkUrl, shuffle = true) +
+            listOf(listOf(goToArtist), albumDownloadActions(album)),
         onDismiss = onDismiss,
         leading = { Artwork(album.artwork, album.artworkUrl, ArtworkSize.Thumbnail, Modifier.size(48.dp), cornerRadius = 4.dp) },
     )
@@ -111,7 +115,7 @@ fun ArtistActionSheet(artist: Artist, onDismiss: () -> Unit, extra: List<List<Ac
     ActionSheet(
         title = artist.name,
         subtitle = null,
-        groups = queueActions({ library.tracksForAlbumArtistInOrder(artist.id) }, shuffle = true) + extra,
+        groups = queueActions({ library.tracksForAlbumArtistInOrder(artist.id) }, shuffle = true) + listOf(artistDownloadActions(artist)) + extra,
         onDismiss = onDismiss,
         leading = { ArtistArtwork(artist, 48.dp) },
     )
