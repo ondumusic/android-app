@@ -182,6 +182,24 @@ class PlaylistControllerTest {
     }
 
     @Test
+    fun removingTheDownloadClearsTheFlagAndRemovesEveryTrack() = runTest {
+        val id = UUID.randomUUID()
+        library.insertLocalPlaylist(Playlist(id, "Mix", 0, now))
+        library.setPlaylistAutoDownload(id, true)
+        val a = UUID.randomUUID()
+        val b = UUID.randomUUID()
+        seedTracks(a, b)
+        listOf(a, b).forEachIndexed { i, track -> library.insertLocalPlaylistItem(PlaylistItem(UUID.randomUUID(), id, track, "a$i", now)) }
+        val removed = mutableListOf<Set<UUID>>()
+
+        PlaylistController(library, outbox, prefs, backgroundScope, removeDownloads = { removed += it }) {}
+            .disableAutoDownloadAndRemove(id)
+
+        assertEquals(false, library.playlist(id)!!.autoDownload)
+        assertEquals(listOf(setOf(a, b)), removed)
+    }
+
+    @Test
     fun removingAnItemNotYetAddedServerSideSendsNothing() = runTest {
         val id = UUID.randomUUID()
         library.insertLocalPlaylist(Playlist(id, "Mix", 0, now))

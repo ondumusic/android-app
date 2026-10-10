@@ -3,6 +3,7 @@ package com.ondumusic.player.service
 import android.content.SharedPreferences
 import androidx.core.content.edit
 import com.ondumusic.player.data.MusicLibrary
+import com.ondumusic.player.data.removeDownloads
 import com.ondumusic.player.model.Playlist
 import com.ondumusic.player.model.PlaylistItem
 import com.ondumusic.player.service.outbox.AddItemsPayload
@@ -36,6 +37,8 @@ class PlaylistController(
     private val prefs: SharedPreferences,
     /** Should live as long as the app. */
     private val scope: CoroutineScope,
+    /** Deletes downloads, cancelling any still queued. */
+    private val removeDownloads: suspend (Set<UUID>) -> Unit = { musicLibrary.removeDownloads(it) },
     /** Queues downloads; expected to skip tracks already downloading. */
     private val downloadTracks: suspend (Set<UUID>) -> Unit,
 ) {
@@ -59,6 +62,16 @@ class PlaylistController(
         musicLibrary.setPlaylistAutoDownload(playlistId, true)
         val undownloaded = musicLibrary.tracksForPlaylist(playlistId).filterNot { it.isDownloaded }.map { it.id }.toSet()
         if (undownloaded.isNotEmpty()) downloadTracks(undownloaded)
+    }
+
+    /**
+     * Clears the auto-download flag and removes the playlist's downloaded tracks — all of
+     * them, as on iOS, even ones also downloaded with their album.
+     */
+    suspend fun disableAutoDownloadAndRemove(playlistId: UUID) = perform {
+        musicLibrary.setPlaylistAutoDownload(playlistId, false)
+        val ids = musicLibrary.tracksForPlaylist(playlistId).map { it.id }.toSet()
+        if (ids.isNotEmpty()) removeDownloads(ids)
     }
 
     // Playlist CRUD
