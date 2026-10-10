@@ -177,6 +177,10 @@ class PlayerService(
 
     val effectiveIndex: Int get() = _state.value.effectiveIndex
 
+    /** Whether [back] does anything: restart a track that's under way, or step to an earlier one. */
+    val canGoBack: Boolean
+        get() = queue.isNotEmpty() && (_progress.value > 3 || currentIndex > 0)
+
     private fun publish() {
         _state.value = State(
             queue, currentIndex, shuffledIndices, repeatMode, isPlaying, isBuffering,
