@@ -119,7 +119,14 @@ private fun ValueRow(title: String, value: String, onClick: (() -> Unit)? = null
 
 /** A setting chosen from a short list, as a dialog of radio buttons. */
 @Composable
-private fun <T> ChoiceRow(title: String, options: List<T>, selected: T, label: @Composable (T) -> String, onSelect: (T) -> Unit) {
+private fun <T> ChoiceRow(
+    title: String,
+    options: List<T>,
+    selected: T,
+    label: @Composable (T) -> String,
+    onSelect: (T) -> Unit,
+    description: String? = null,
+) {
     var open by remember { mutableStateOf(false) }
     ValueRow(title, label(selected)) { open = true }
     if (!open) return
@@ -128,6 +135,10 @@ private fun <T> ChoiceRow(title: String, options: List<T>, selected: T, label: @
         title = { Text(title) },
         text = {
             Column {
+                description?.let {
+                    Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 8.dp))
+                }
                 options.forEach { option ->
                     Row(
                         Modifier.fillMaxWidth().selectable(option == selected, role = Role.RadioButton) { onSelect(option); open = false }
@@ -151,7 +162,8 @@ private fun PlaybackSection(settings: SettingsStore) {
     val recordPlays by settings.recordPlays.flow.collectAsStateWithLifecycle()
 
     SectionHeader(stringResource(R.string.settings_playback))
-    SwitchRow(stringResource(R.string.settings_crossfade), crossfade > 0, { settings.crossfadeDuration.value = if (it) 1f else 0f })
+    SwitchRow(stringResource(R.string.settings_crossfade), crossfade > 0, { settings.crossfadeDuration.value = if (it) 1f else 0f },
+        supporting = stringResource(R.string.settings_crossfade_footer))
     if (crossfade > 0) {
         // Dragging updates the label; the setting is written when the thumb is let go.
         var dragging by remember(crossfade) { mutableFloatStateOf(crossfade) }
@@ -162,11 +174,10 @@ private fun PlaybackSection(settings: SettingsStore) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
-    Footer(stringResource(R.string.settings_crossfade_footer))
-    SwitchRow(stringResource(R.string.settings_normalize), normalize, { settings.normalizeVolume.value = it })
-    Footer(stringResource(R.string.settings_normalize_footer))
-    SwitchRow(stringResource(R.string.settings_record_plays), recordPlays, { settings.recordPlays.value = it })
-    Footer(stringResource(R.string.settings_record_plays_footer))
+    SwitchRow(stringResource(R.string.settings_normalize), normalize, { settings.normalizeVolume.value = it },
+        supporting = stringResource(R.string.settings_normalize_footer))
+    SwitchRow(stringResource(R.string.settings_record_plays), recordPlays, { settings.recordPlays.value = it },
+        supporting = stringResource(R.string.settings_record_plays_footer))
 }
 
 @Composable
@@ -260,13 +271,13 @@ private fun CacheSection() {
     SectionHeader(stringResource(R.string.settings_cache))
     ChoiceRow(stringResource(R.string.settings_cache_limit), cacheLimits.map { it.first }, limit,
         label = { bytes -> cacheLimits.firstOrNull { it.first == bytes }?.second ?: stringResource(R.string.settings_unlimited) },
-        onSelect = { container.settings.playbackCacheLimit.value = it })
+        onSelect = { container.settings.playbackCacheLimit.value = it },
+        description = stringResource(R.string.settings_cache_footer))
     ValueRow(stringResource(R.string.settings_cache_size), "$size · ${pluralStringResource(R.plurals.track_count, usage.second, usage.second)}")
     ListItem(
         headlineContent = { Text(stringResource(R.string.settings_clear_cache), color = MaterialTheme.colorScheme.error) },
         modifier = Modifier.clickable(enabled = usage.second > 0) { confirmClear = true },
     )
-    Footer(stringResource(R.string.settings_cache_footer))
     if (confirmClear) {
         AlertDialog(
             onDismissRequest = { confirmClear = false },
@@ -290,10 +301,11 @@ private fun QualitySection(settings: SettingsStore) {
     val download by settings.downloadQuality.flow.collectAsStateWithLifecycle()
     SectionHeader(stringResource(R.string.settings_quality))
     ChoiceRow(stringResource(R.string.settings_streaming_quality), StreamingQuality.entries, streaming,
-        label = { stringResource(it.labelRes()) }, onSelect = { settings.streamingQuality.value = it })
+        label = { stringResource(it.labelRes()) }, onSelect = { settings.streamingQuality.value = it },
+        description = stringResource(R.string.settings_streaming_quality_description))
     ChoiceRow(stringResource(R.string.settings_download_quality), DownloadQuality.entries, download,
-        label = { stringResource(it.labelRes()) }, onSelect = { settings.downloadQuality.value = it })
-    Footer(stringResource(R.string.settings_quality_footer))
+        label = { stringResource(it.labelRes()) }, onSelect = { settings.downloadQuality.value = it },
+        description = stringResource(R.string.settings_download_quality_description))
 }
 
 private fun StreamingQuality.labelRes() = when (this) {
@@ -315,8 +327,8 @@ private fun DownloadsSection(settings: SettingsStore) {
     SectionHeader(stringResource(R.string.menu_downloads))
     ChoiceRow(stringResource(R.string.settings_concurrent_downloads), concurrentDownloadOptions, concurrent,
         label = { it.toString() }, onSelect = { settings.maxConcurrentDownloads.value = it })
-    SwitchRow(stringResource(R.string.settings_auto_download), auto, { settings.autoDownloadNewTracks.value = it })
-    Footer(stringResource(R.string.settings_auto_download_footer))
+    SwitchRow(stringResource(R.string.settings_auto_download), auto, { settings.autoDownloadNewTracks.value = it },
+        supporting = stringResource(R.string.settings_auto_download_footer))
 }
 
 @Composable

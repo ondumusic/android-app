@@ -6,15 +6,15 @@
     <string name="settings_playback">Playback</string>
     <string name="settings_crossfade">Crossfade</string>
     <string name="settings_seconds">%1$ds</string>
-    <string name="settings_crossfade_footer">Smoothly transition between tracks by overlapping the end of one with the start of the next. Tracks that run on from each other on an album still play without a gap.</string>
+    <string name="settings_crossfade_footer">Blend each song into the next. Albums that play continuously stay gapless.</string>
     <string name="settings_normalize">Normalize Volume</string>
-    <string name="settings_normalize_footer">Plays every track at a similar loudness, so quiet albums and loud ones don’t jump. Albums keep their own quiet and loud moments. Turns the volume down, never up.</string>
+    <string name="settings_normalize_footer">Play songs at a similar loudness. Only ever turns music down, and albums keep their own dynamics.</string>
     <string name="settings_record_plays">Record Plays</string>
-    <string name="settings_record_plays_footer">Counts a track as played once you’ve heard most of it, and tells your server. Turning this off stops this device counting; plays already recorded are kept, and your other devices carry on.</string>
+    <string name="settings_record_plays_footer">Tell your server what you listen to, so play counts include this device.</string>
 
     <string name="settings_appearance">Appearance</string>
     <string name="settings_tinted_player">Artwork-Tinted Player</string>
-    <string name="settings_tinted_player_footer">Colors the player background based on the current track’s album artwork.</string>
+    <string name="settings_tinted_player_footer">Color the player with the album artwork.</string>
     <string name="settings_haptics">Haptic Feedback</string>
     <string name="settings_accent">Accent Color</string>
     <string name="accent_blue">Blue</string>
@@ -40,14 +40,15 @@
     <string name="settings_quality">Quality</string>
     <string name="settings_streaming_quality">Streaming Quality</string>
     <string name="settings_download_quality">Download Quality</string>
-    <string name="settings_quality_footer">Streaming quality applies when playing from the server. Download quality only affects new downloads.</string>
+    <string name="settings_streaming_quality_description">Used when playing from the server. Lower quality saves data on mobile networks.</string>
+    <string name="settings_download_quality_description">Applies to new downloads. Songs already downloaded keep their quality.</string>
     <string name="quality_original">Original</string>
     <string name="quality_default">Default (256 kbps)</string>
     <string name="quality_mobile">Mobile (128 kbps)</string>
 
     <string name="settings_concurrent_downloads">Concurrent Downloads</string>
     <string name="settings_auto_download">Auto-Download New Tracks</string>
-    <string name="settings_auto_download_footer">Automatically download new tracks added to the server after each sync.</string>
+    <string name="settings_auto_download_footer">Download songs newly added to your server after each sync.</string>
 
     <string name="settings_library">Library</string>
     <string name="settings_last_synced">Last Synced</string>
