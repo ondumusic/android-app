@@ -137,6 +137,3 @@ private fun PlaylistRow(entry: Playlist, childCount: Int, onClick: () -> Unit, o
     )
 }
 
-@Composable
-fun AddToPlaylistSheet(trackIds: List<UUID>, onDismiss: () -> Unit) {}
-
