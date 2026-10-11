@@ -1,11 +1,15 @@
 # Builds, signs and publishes a release when a version tag (0.2.0) is pushed. The tag has to
 # match versionName in app/build.gradle.kts; the APK lands on a GitHub release with that
 # version's CHANGELOG section as its notes. See docs/RELEASING.md.
+#
+# Run by hand (Actions → Release → Run workflow), it builds a signed test APK of the chosen
+# branch instead and attaches it to the run, without a tag, notes or a release.
 name: Release
 
 on:
   push:
     tags: ["[0-9]+.[0-9]+.[0-9]+"]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -16,19 +20,27 @@ jobs:
     timeout-minutes: 30
     env:
       VERSION: ${{ github.ref_name }}
+      IS_RELEASE: ${{ github.event_name == 'push' }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check the tag matches the app's version
+      - name: Read the app's version
         run: |
           name=$(sed -n 's/^ *versionName = "\(.*\)"/\1/p' app/build.gradle.kts)
-          if [ "$name" != "$VERSION" ]; then
+          if [ "$IS_RELEASE" = true ] && [ "$name" != "$VERSION" ]; then
             echo "::error::Tag $VERSION doesn't match versionName $name in app/build.gradle.kts"
             exit 1
           fi
           echo "VERSION_NAME=$name" >> "$GITHUB_ENV"
+          # A test build is named for its commit too, so builds of one version can be told apart.
+          if [ "$IS_RELEASE" = true ]; then
+            echo "APK_NAME=ondu-$name" >> "$GITHUB_ENV"
+          else
+            echo "APK_NAME=ondu-$name-$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+          fi
 
       - name: Extract release notes
+        if: env.IS_RELEASE == 'true'
         run: |
           # The CHANGELOG section for this version, up to the next one.
           awk -v v="$VERSION_NAME" '
@@ -85,10 +97,11 @@ jobs:
             exit 1
           fi
           mkdir -p dist
-          cp "$apk" "dist/ondu-$VERSION_NAME.apk"
-          (cd dist && sha256sum "ondu-$VERSION_NAME.apk" > "ondu-$VERSION_NAME.apk.sha256")
+          cp "$apk" "dist/$APK_NAME.apk"
+          (cd dist && sha256sum "$APK_NAME.apk" > "$APK_NAME.apk.sha256")
 
       - name: Publish the release
+        if: env.IS_RELEASE == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -97,13 +110,20 @@ jobs:
             --notes-file "$RUNNER_TEMP/notes.md" \
             dist/*
 
+      - name: Attach the test build
+        if: env.IS_RELEASE != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APK_NAME }}
+          path: dist/
+
       # Kept with the run rather than on the release: it maps obfuscated names back to the
       # source, which the release's readers don't need. Without it, crash traces from this
       # build can't be read.
       - name: Keep the R8 mapping
         uses: actions/upload-artifact@v4
         with:
-          name: mapping-${{ env.VERSION_NAME }}
+          name: mapping-${{ env.APK_NAME }}
           path: app/build/outputs/mapping/release/mapping.txt
           retention-days: 90
 

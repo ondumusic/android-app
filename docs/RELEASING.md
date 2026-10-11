@@ -150,6 +150,19 @@ git tag -a 0.2.0 -m "Ondu 0.2.0" && git push --tags
 
 Once a release is published and shared, never move its tag. Make a new version instead.
 
+### Test builds, without a release
+
+To try a build before releasing it, or to hand a tester something in between, run the same
+workflow by hand: **Actions → Release → Run workflow**, then pick the branch. It runs the
+tests and builds an APK signed with the release key, but needs no tag or changelog entry and
+publishes nothing. The APK is attached to the run as `ondu-0.1.0-a1b2c3d` (version, then the
+commit), on the run's summary page.
+
+Test builds can share a version. Android installs a build over another with the same
+`versionCode`, only never over a higher one. So several `0.1.0` test builds can go to a tester
+one after another, and the tagged `0.1.0` release installs over all of them. Raise the
+version once a release is out, not for each test build.
+
 ## 4. Verify before sharing
 
 Release builds are shrunk and obfuscated by R8. Code that works in debug can break there,
