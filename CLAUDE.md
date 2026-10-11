@@ -87,6 +87,7 @@ toolchain that Gradle downloads itself (Robolectric breaks on 25). The SDK lives
 export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 ./gradlew :app:assembleDebug          # build
 ./gradlew :app:testDebugUnitTest      # unit tests
+./gradlew :app:lintDebug              # Android Lint; app/build/reports/lint-results-debug.html
 ./gradlew :app:installDebug           # install on running emulator/device
 
 ~/Library/Android/sdk/emulator/emulator -avd Phone &   # Pixel 9, Android 17
@@ -99,6 +100,6 @@ Judge a build by its exit code.
 `docs/RELEASING.md` covers the signing key, the release commit (a dated `CHANGELOG.md` section
 plus a raised `versionCode`/`versionName`), tagging, checking, archiving and distribution.
 Pushing a version tag (`0.2.0`) runs `.github/workflows/release.yml`, which builds, signs and publishes the
-GitHub release; `.github/workflows/ci.yml` runs the unit tests on every push and pull request.
+GitHub release; `.github/workflows/ci.yml` runs the unit tests and lint on every push and pull request.
 Release builds are shrunk with R8, so check one on a device before it's shared. Locally,
 signing reads `keystore.properties` in the repository root, which git ignores.

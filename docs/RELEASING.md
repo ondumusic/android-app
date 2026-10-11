@@ -222,7 +222,7 @@ archive and distribute as above.
 
 ## Continuous integration
 
-Separately from releases, `.github/workflows/ci.yml` runs the unit tests and a debug build
+Separately from releases, `.github/workflows/ci.yml` runs the unit tests, Android Lint and a debug build
 on every push to `main` and on every pull request. A red run there means fix before
 tagging; the release workflow runs the tests again anyway and won't publish if they fail.
 

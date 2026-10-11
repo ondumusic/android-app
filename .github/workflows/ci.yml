@@ -1,5 +1,6 @@
-# Unit tests and a debug build on every push and pull request, so a breakage shows up
-# when it's made rather than when a release is tagged.
+# Unit tests, Android Lint and a debug build on every push and pull request, so a breakage
+# shows up when it's made rather than when a release is tagged. Lint errors fail the run;
+# warnings are left in the report for a person to judge.
 name: CI
 
 on:
@@ -32,12 +33,17 @@ jobs:
       - name: Unit tests
         run: ./gradlew :app:testDebugUnitTest
 
+      - name: Lint
+        run: ./gradlew :app:lintDebug
+
       - name: Debug build
         run: ./gradlew :app:assembleDebug
 
-      - name: Upload test report
-        if: failure()
+      - name: Upload reports
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-report
-          path: app/build/reports/tests/testDebugUnitTest/
+          name: reports
+          path: |
+            app/build/reports/tests/testDebugUnitTest/
+            app/build/reports/lint-results-debug.html
