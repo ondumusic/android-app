@@ -10,6 +10,12 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Before Android 14 the output picker is opened through System UI, which apps can't
+         see on Android 11 and later unless it's named here. -->
+    <queries>
+        <package android:name="com.android.systemui" />
+    </queries>
+
     <application
         android:name=".OnduApplication"
         android:allowBackup="false"
