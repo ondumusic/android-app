@@ -96,7 +96,9 @@ Judge a build by its exit code.
 
 ### Release builds
 
-`docs/RELEASING.md` covers the signing key, version bumps, building, checking, archiving and
-distribution. Release builds are shrunk with R8, so check one on a device before it's shared.
-Signing reads `keystore.properties` in the repository root, which git ignores; without it
-`assembleRelease` produces an unsigned APK.
+`docs/RELEASING.md` covers the signing key, the release commit (a dated `CHANGELOG.md` section
+plus a raised `versionCode`/`versionName`), tagging, checking, archiving and distribution.
+Pushing a version tag (`0.2.0`) runs `.github/workflows/release.yml`, which builds, signs and publishes the
+GitHub release; `.github/workflows/ci.yml` runs the unit tests on every push and pull request.
+Release builds are shrunk with R8, so check one on a device before it's shared. Locally,
+signing reads `keystore.properties` in the repository root, which git ignores.
