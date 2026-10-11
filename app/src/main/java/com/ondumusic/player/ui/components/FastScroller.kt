@@ -21,6 +21,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -49,30 +50,30 @@ import kotlin.math.roundToInt
  */
 @Composable
 fun FastScroller(state: LazyListState, modifier: Modifier = Modifier, label: (Int) -> String? = { null }) {
-    val info = state.layoutInfo
-    FastScroller(
-        first = state.firstVisibleItemIndex,
-        visible = info.visibleItemsInfo.size,
-        total = info.totalItemsCount,
-        isScrolling = state.isScrollInProgress,
-        scrollTo = { state.scrollToItem(it) },
-        label = label,
-        modifier = modifier,
-    )
+    val position = remember(state) {
+        ScrollPosition(
+            first = { state.firstVisibleItemIndex },
+            visible = { state.layoutInfo.visibleItemsInfo.size },
+            total = { state.layoutInfo.totalItemsCount },
+            isScrolling = { state.isScrollInProgress },
+            scrollTo = { state.scrollToItem(it) },
+        )
+    }
+    FastScroller(position, label, modifier)
 }
 
 @Composable
 fun FastScroller(state: LazyGridState, modifier: Modifier = Modifier, label: (Int) -> String? = { null }) {
-    val info = state.layoutInfo
-    FastScroller(
-        first = state.firstVisibleItemIndex,
-        visible = info.visibleItemsInfo.size,
-        total = info.totalItemsCount,
-        isScrolling = state.isScrollInProgress,
-        scrollTo = { state.scrollToItem(it) },
-        label = label,
-        modifier = modifier,
-    )
+    val position = remember(state) {
+        ScrollPosition(
+            first = { state.firstVisibleItemIndex },
+            visible = { state.layoutInfo.visibleItemsInfo.size },
+            total = { state.layoutInfo.totalItemsCount },
+            isScrolling = { state.isScrollInProgress },
+            scrollTo = { state.scrollToItem(it) },
+        )
+    }
+    FastScroller(position, label, modifier)
 }
 
 /** The label of the section an index falls in, from each section's first index and name, in order. */
@@ -81,25 +82,33 @@ fun sectionLabels(starts: List<Pair<Int, String>>): (Int) -> String? = { index -
     starts.getOrNull(if (i >= 0) i else -i - 2)?.second
 }
 
+/**
+ * Read through functions rather than passed as values: the position changes every frame of a
+ * scroll, and only the layout that places the handle needs it that often.
+ */
+private class ScrollPosition(
+    val first: () -> Int,
+    val visible: () -> Int,
+    val total: () -> Int,
+    val isScrolling: () -> Boolean,
+    val scrollTo: suspend (Int) -> Unit,
+)
+
 @Composable
-private fun FastScroller(
-    first: Int,
-    visible: Int,
-    total: Int,
-    isScrolling: Boolean,
-    scrollTo: suspend (Int) -> Unit,
-    label: (Int) -> String?,
-    modifier: Modifier,
-) {
+private fun FastScroller(position: ScrollPosition, label: (Int) -> String?, modifier: Modifier) {
+    val range by remember(position) { derivedStateOf { position.total() - position.visible() } }
     // A few screens' worth is quick enough to fling through.
-    val range = total - visible
-    if (visible == 0 || total < visible * MIN_SCREENS || range <= 0) return
+    val worthIt by remember(position) {
+        derivedStateOf { position.visible() > 0 && position.total() >= position.visible() * MIN_SCREENS && range > 0 }
+    }
+    if (!worthIt) return
 
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
     var dragging by remember { mutableStateOf(false) }
     var dragFraction by remember { mutableFloatStateOf(0f) }
     var shown by remember { mutableStateOf(false) }
+    val isScrolling by remember(position) { derivedStateOf { position.isScrolling() } }
     LaunchedEffect(isScrolling, dragging) {
         if (isScrolling || dragging) shown = true
         else {
@@ -108,24 +117,25 @@ private fun FastScroller(
         }
     }
     val alpha by animateFloatAsState(if (shown) 1f else 0f, label = "fastScroller")
-    val fraction = if (dragging) dragFraction else (first.toFloat() / range).coerceIn(0f, 1f)
-    val current = label((fraction * range).roundToInt())
-    LaunchedEffect(current) { if (dragging && current != null) haptics.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick) }
+    fun fraction() = if (dragging) dragFraction else (position.first().toFloat() / range).coerceIn(0f, 1f)
+    // Only while dragging, so a plain scroll doesn't recompose this for every new item.
+    val current = if (dragging) label((dragFraction * range).roundToInt()) else null
+    LaunchedEffect(current) { if (current != null) haptics.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick) }
 
     BoxWithConstraints(modifier.fillMaxHeight().width(TOUCH_WIDTH)) {
         val density = LocalDensity.current
         val thumbPx = with(density) { TOUCH_HEIGHT.toPx() }
         val trackPx = (constraints.maxHeight - thumbPx).coerceAtLeast(1f)
-        val y = (fraction * trackPx).roundToInt()
+        fun y() = (fraction() * trackPx).roundToInt()
 
-        if (dragging && current != null) {
+        if (current != null) {
             Surface(
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier
                     // Wider than the strip, so laid out centred on it; the offset is from there.
-                    .offset { IntOffset(-(BUBBLE_SIZE / 2 + TOUCH_WIDTH / 2 + 8.dp).roundToPx(), y + ((thumbPx - BUBBLE_SIZE.toPx()) / 2).roundToInt()) }
+                    .offset { IntOffset(-(BUBBLE_SIZE / 2 + TOUCH_WIDTH / 2 + 8.dp).roundToPx(), y() + ((thumbPx - BUBBLE_SIZE.toPx()) / 2).roundToInt()) }
                     .requiredSize(BUBBLE_SIZE),
             ) {
                 Box(contentAlignment = Alignment.Center) { Text(current, style = MaterialTheme.typography.headlineSmall) }
@@ -133,16 +143,17 @@ private fun FastScroller(
         }
         Box(
             Modifier
-                .offset { IntOffset(0, y) }
+                .offset { IntOffset(0, y()) }
                 .size(TOUCH_WIDTH, TOUCH_HEIGHT)
                 .graphicsLayer { this.alpha = alpha }
                 // The right edge is the system back gesture's; the handle needs it more.
                 .then(if (shown) Modifier.systemGestureExclusion() else Modifier)
-                .pointerInput(shown) {
+                .pointerInput(shown, trackPx) {
                     if (!shown) return@pointerInput
                     detectVerticalDragGestures(
                         onDragStart = {
-                            dragFraction = fraction
+                            // Where the list is now, not where it was when the handle appeared.
+                            dragFraction = fraction()
                             dragging = true
                         },
                         onDragEnd = { dragging = false },
@@ -151,7 +162,7 @@ private fun FastScroller(
                         change.consume()
                         dragFraction = (dragFraction + dy / trackPx).coerceIn(0f, 1f)
                         val target = (dragFraction * range).roundToInt()
-                        scope.launch { scrollTo(target) }
+                        scope.launch { position.scrollTo(target) }
                     }
                 },
             contentAlignment = Alignment.CenterEnd,
