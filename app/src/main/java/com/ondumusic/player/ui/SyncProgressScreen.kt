@@ -1,5 +1,8 @@
 package com.ondumusic.player.ui
 
+import androidx.compose.animation.core.EaseOut
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -78,20 +81,34 @@ fun SyncProgressScreen(sync: SyncService, auth: AuthService) {
                 )
                 progress?.takeIf { it.artistCount > 0 }?.let { p ->
                     Spacer(Modifier.height(16.dp))
-                    val artists = pluralStringResource(R.plurals.artist_count, p.artistCount, p.artistCount)
-                    val albums = pluralStringResource(R.plurals.album_count, p.albumCount, p.albumCount)
-                    val tracks = pluralStringResource(R.plurals.track_count, p.trackCount, p.trackCount)
-                    Text(
-                        when {
-                            p.trackCount > 0 -> "$artists, $albums, $tracks"
-                            p.albumCount > 0 -> "$artists, $albums"
-                            else -> artists
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline,
-                    )
+                    SyncCounts(p.artistCount, p.albumCount, p.trackCount)
                 }
             }
         }
     }
+}
+
+/**
+ * Sync pages land a few hundred rows at a time; easing each count through the values in
+ * between makes them tick up instead of jumping by the page size, as on iOS.
+ */
+@Composable
+private fun SyncCounts(artistCount: Int, albumCount: Int, trackCount: Int) {
+    val spec = tween<Int>(800, easing = EaseOut)
+    val artistsShown by animateIntAsState(artistCount, spec, label = "artists")
+    val albumsShown by animateIntAsState(albumCount, spec, label = "albums")
+    val tracksShown by animateIntAsState(trackCount, spec, label = "tracks")
+    val artists = pluralStringResource(R.plurals.artist_count, artistsShown, artistsShown)
+    val albums = pluralStringResource(R.plurals.album_count, albumsShown, albumsShown)
+    val tracks = pluralStringResource(R.plurals.track_count, tracksShown, tracksShown)
+    Text(
+        when {
+            trackCount > 0 -> "$artists, $albums, $tracks"
+            albumCount > 0 -> "$artists, $albums"
+            else -> artists
+        },
+        // Even-width digits, so the line doesn't shuffle sideways as the numbers change.
+        style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
+        color = MaterialTheme.colorScheme.outline,
+    )
 }
