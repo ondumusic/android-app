@@ -317,7 +317,7 @@ class OutboxServiceTest {
         outbox.flush()
 
         assertEquals(3, server.requestCount)
-        assertEquals(UiText.Res(R.string.outbox_filter_retries_exhausted, listOf(3)), outbox.lastError.value)
+        assertEquals(UiText.Res(R.string.outbox_filter_retries_exhausted), outbox.lastError.value)
     }
 
     @Test

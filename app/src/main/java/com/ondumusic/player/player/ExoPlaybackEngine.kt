@@ -74,6 +74,9 @@ class ExoPlaybackEngine(
                     listener?.onReady()
                 }
                 Player.STATE_ENDED -> if (secondary == null) listener?.onEnded()
+                // PlayerService counts from loading a source to onReady as buffering; idle follows
+                // a stop or an error, both reported on their own.
+                Player.STATE_BUFFERING, Player.STATE_IDLE -> Unit
             }
         }
 

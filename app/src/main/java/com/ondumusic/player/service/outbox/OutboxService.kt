@@ -341,7 +341,7 @@ class OutboxService(
         depth: Int,
     ): Outcome {
         if (addEntries.isEmpty() && moveEntries.isEmpty() && removeIds.isEmpty()) return Outcome.Success
-        if (depth >= MAX_FILTER_RETRIES) return Outcome.Discard(UiText.Res(R.string.outbox_filter_retries_exhausted, listOf(depth)))
+        if (depth >= MAX_FILTER_RETRIES) return Outcome.Discard(UiText.Res(R.string.outbox_filter_retries_exhausted))
 
         // Two drags of the same track batch into two moves of one item, which the server
         // rejects outright as duplicate_items. The later op is the newer intent, so it wins
