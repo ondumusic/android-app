@@ -38,8 +38,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Queue items carrying each playlist item's id, so the playing row can be told apart from
@@ -198,24 +196,17 @@ fun playlistDownloadActions(playlist: Playlist): List<Action> {
     )
 }
 
-private val remappedIds = ConcurrentHashMap<UUID, UUID>()
-private val collectingRemaps = AtomicBoolean(false)
-
 /**
- * [id], or the server's id for it once a playlist created offline has synced. Remaps are
- * remembered for the whole process, because a screen waiting in a back stack isn't
- * composed when its playlist's id changes.
+ * [id], or the server's id for it once a playlist created offline has synced, so a screen
+ * showing it keeps showing it.
  */
 @Composable
 fun rememberFollowedPlaylistId(id: UUID): UUID {
-    val container = LocalContainer.current
-    if (collectingRemaps.compareAndSet(false, true)) {
-        container.scope.launch { container.library.playlistIdRemapped.collect { (temp, real) -> remappedIds[temp] = real } }
-    }
-    var current by rememberSaveable(id) { mutableStateOf(remappedIds[id] ?: id) }
-    LaunchedEffect(container.library) {
-        remappedIds[current]?.let { current = it }
-        container.library.playlistIdRemapped.collect { (temp, real) -> if (temp == current) current = real }
+    val library = LocalContainer.current.library
+    var current by rememberSaveable(id) { mutableStateOf(library.currentPlaylistId(id)) }
+    LaunchedEffect(library) {
+        current = library.currentPlaylistId(current)
+        library.playlistIdRemapped.collect { (temp, real) -> if (temp == current) current = real }
     }
     return current
 }

@@ -178,6 +178,9 @@ class MusicLibraryTest {
         assertEquals("added offline, so the local count stands", 1, library.playlist(real)!!.trackCount)
         assertEquals(real, library.playlist(childId)!!.parentId)
         assertEquals(1, library.playlistItems(real).size)
+        // Remembered for anyone who missed the event.
+        assertEquals(real, library.currentPlaylistId(temp))
+        assertEquals(childId, library.currentPlaylistId(childId))
     }
 
     @Test

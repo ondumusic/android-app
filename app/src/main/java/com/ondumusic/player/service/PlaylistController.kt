@@ -20,7 +20,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.time.Instant
 import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 
 /**
  * UI-facing façade for playlist mutations: the local store is updated at once and the
@@ -48,9 +47,6 @@ class PlaylistController(
 ) {
     private val lock = Mutex()
 
-    /** Temporary playlist ids and the server's, for undoing an add made before the playlist was confirmed. */
-    private val remappedPlaylists = ConcurrentHashMap<UUID, UUID>()
-
     private val _lastUsedPlaylistId = MutableStateFlow(prefs.getString(KEY_LAST_USED, null)?.let(::uuidOrNull))
     /** Powers the "Add to <name>" shortcut in track/album/artist menus. Set whenever tracks are added to a playlist. */
     val lastUsedPlaylistId: StateFlow<UUID?> = _lastUsedPlaylistId.asStateFlow()
@@ -60,7 +56,6 @@ class PlaylistController(
         // server's, the shortcut would point at a playlist that no longer exists.
         scope.launch {
             musicLibrary.playlistIdRemapped.collect { (temp, real) ->
-                remappedPlaylists[temp] = real
                 if (_lastUsedPlaylistId.value == temp) setLastUsed(real)
             }
         }
@@ -181,7 +176,7 @@ class PlaylistController(
      */
     suspend fun undoAdd(items: List<PlaylistItem>) = perform {
         for ((originalPlaylist, added) in items.groupBy { it.playlistId }) {
-            val playlistId = remappedPlaylists[originalPlaylist] ?: originalPlaylist
+            val playlistId = musicLibrary.currentPlaylistId(originalPlaylist)
             val current = musicLibrary.playlistItems(playlistId)
             val ids = added.mapNotNull { item ->
                 current.firstOrNull { it.id == item.id || (it.trackId == item.trackId && it.position == item.position) }?.id

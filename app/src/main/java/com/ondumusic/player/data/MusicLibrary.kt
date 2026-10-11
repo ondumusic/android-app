@@ -31,6 +31,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * The on-device library: everything synced from the server plus local-only state
@@ -49,6 +50,15 @@ class MusicLibrary(
 
     /** (temp, real) when a playlist created offline gets its server id, so screens showing it can follow. */
     val playlistIdRemapped: SharedFlow<Pair<UUID, UUID>> = _playlistIdRemapped
+
+    /**
+     * Every remap so far, for whatever wasn't listening when it happened: a screen waiting in a
+     * back stack, or an undo held from before the playlist was confirmed.
+     */
+    private val remappedPlaylistIds = ConcurrentHashMap<UUID, UUID>()
+
+    /** [id], or the server's id for it if it was a temporary one that has since been confirmed. */
+    fun currentPlaylistId(id: UUID): UUID = remappedPlaylistIds[id] ?: id
 
     /**
      * `allTracks()` is the most expensive query in the app at library scale, and every
@@ -428,6 +438,7 @@ class MusicLibrary(
             db.playlistItems().reassign(tempId, confirmed.id)
             db.playlists().reparentChildren(tempId, confirmed.id)
         }
+        remappedPlaylistIds[tempId] = confirmed.id
         _playlistIdRemapped.tryEmit(tempId to confirmed.id)
     }
 
