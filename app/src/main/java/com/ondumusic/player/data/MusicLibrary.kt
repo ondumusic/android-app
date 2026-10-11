@@ -294,6 +294,17 @@ class MusicLibrary(
      * re-sync must not pass it: an initial sync clears the tables before repopulating them,
      * and taking the audio files with it would leave reconciliation nothing to put back.
      */
+    /**
+     * Shrinks the database file to what it holds. Emptying the tables leaves the file at its
+     * old size, which after signing out reads as data still kept on the device.
+     */
+    suspend fun compact() = withContext(Dispatchers.IO) {
+        val sqlite = db.openHelper.writableDatabase
+        sqlite.execSQL("VACUUM")
+        // VACUUM writes through the write-ahead log; folding it back empties that file too.
+        sqlite.query("PRAGMA wal_checkpoint(TRUNCATE)").use { it.moveToFirst() }
+    }
+
     suspend fun clearAll(includingDownloads: Boolean = false) {
         if (includingDownloads) File(filesDir, DOWNLOADS_DIR).deleteRecursively()
         db.withTransaction {

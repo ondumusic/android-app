@@ -1,6 +1,5 @@
 package com.ondumusic.player.ui.search
 
-import android.content.Context
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.background
@@ -49,14 +48,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ondumusic.player.R
-import com.ondumusic.player.data.SearchHistory
 import com.ondumusic.player.data.SearchHistoryItem
 import com.ondumusic.player.data.SearchResults
 import com.ondumusic.player.model.Album
@@ -99,8 +96,7 @@ fun SearchScreen(actions: @Composable () -> Unit) {
     val library = container.library
     val navigator = LocalNavigator.current
     val focusManager = LocalFocusManager.current
-    val context = LocalContext.current
-    val history = remember { SearchHistory(context.applicationContext.getSharedPreferences("search", Context.MODE_PRIVATE)) }
+    val history = container.searchHistory
     val historyItems by history.items.collectAsStateWithLifecycle()
 
     var query by rememberSaveable { mutableStateOf("") }

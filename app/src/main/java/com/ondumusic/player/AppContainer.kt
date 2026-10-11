@@ -14,6 +14,7 @@ import com.ondumusic.player.auth.AuthService
 import com.ondumusic.player.auth.KeystoreTokenStore
 import com.ondumusic.player.data.LibraryDatabase
 import com.ondumusic.player.data.MusicLibrary
+import com.ondumusic.player.data.SearchHistory
 import com.ondumusic.player.data.reconcileDownloadedFiles
 import com.ondumusic.player.player.ExoPlaybackEngine
 import com.ondumusic.player.player.PlaybackCacheEvictor
@@ -67,6 +68,7 @@ class AppContainer(context: Context) {
     private val syncPrefs = context.getSharedPreferences("sync", Context.MODE_PRIVATE)
 
     val settings = SettingsStore(context.getSharedPreferences("settings", Context.MODE_PRIVATE))
+    val searchHistory = SearchHistory(context.getSharedPreferences("search", Context.MODE_PRIVATE))
     val auth = AuthService(authPrefs, KeystoreTokenStore(context), http, scope)
     val library = MusicLibrary(LibraryDatabase.create(context) { SyncService.clearState(syncPrefs) }, context.filesDir)
     val network = NetworkMonitor(context)
@@ -150,6 +152,9 @@ class AppContainer(context: Context) {
                         // Before the files go, so no transfer is left writing into the deleted directory.
                         downloads.reset()
                         library.clearAll(includingDownloads = true)
+                        // Its entries name the old library's albums and artists.
+                        searchHistory.clear()
+                        library.compact()
                     }
                     hadSession = false
                 }
