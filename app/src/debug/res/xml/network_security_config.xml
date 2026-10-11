@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Keeps a local server reachable without setting up TLS first. -->
-<network-security-config>
-    <base-config cleartextTrafficPermitted="true" />
+<!-- Keeps a local server reachable without setting up TLS first. Debug builds only; release
+     builds refuse cleartext. -->
+<network-security-config xmlns:tools="http://schemas.android.com/tools">
+    <base-config cleartextTrafficPermitted="true" tools:ignore="InsecureBaseConfiguration" />
 </network-security-config>

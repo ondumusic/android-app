@@ -139,7 +139,10 @@ private fun DownloadsList(state: DownloadsState, progress: Map<java.util.UUID, F
     val sections = listOf(state.active.isNotEmpty() || state.queued.isNotEmpty(), state.failed.isNotEmpty())
     var shownSections by remember { mutableStateOf(sections) }
     if (sections != shownSections) {
-        if (listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0) listState.requestScrollToItem(0)
+        // Read only when the sections change, so this doesn't recompose with every scroll.
+        @Suppress("FrequentlyChangingValue")
+        val atTop = listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0
+        if (atTop) listState.requestScrollToItem(0)
         shownSections = sections
     }
 
