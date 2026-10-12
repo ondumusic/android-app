@@ -58,7 +58,7 @@ jobs:
           java-version: 21
 
       - name: Install Android SDK packages
-        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37" "build-tools;37.0.0" > /dev/null
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0" "build-tools;37.0.0" > /dev/null
 
       - uses: gradle/actions/setup-gradle@v4
 
