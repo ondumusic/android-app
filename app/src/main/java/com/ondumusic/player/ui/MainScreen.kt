@@ -90,6 +90,7 @@ import com.ondumusic.player.ui.playlists.PlaylistScreen
 import com.ondumusic.player.ui.playlists.PlaylistSyncErrorDialog
 import com.ondumusic.player.ui.playlists.PlaylistsScreen
 import com.ondumusic.player.ui.search.SearchScreen
+import com.ondumusic.player.ui.settings.LicensesScreen
 import com.ondumusic.player.ui.settings.SettingsScreen
 import com.ondumusic.player.ui.songs.SongsScreen
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -211,6 +212,7 @@ fun MainScreen() {
                                     entry<Route.Playlist> { PlaylistScreen(it.id) }
                                     entry<Route.Folder> { PlaylistsScreen(accountMenu, folderId = it.id) }
                                     entry<Route.Settings> { SettingsScreen() }
+                                    entry<Route.Licenses> { LicensesScreen() }
                                     entry<Route.Downloads> { DownloadsScreen() }
                                 },
                             )

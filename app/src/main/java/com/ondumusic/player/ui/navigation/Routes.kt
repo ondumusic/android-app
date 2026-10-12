@@ -19,6 +19,7 @@ sealed interface Route : NavKey {
     @Serializable data class Folder(val id: SerialUuid) : Route
 
     @Serializable data object Settings : Route
+    @Serializable data object Licenses : Route
     @Serializable data object Downloads : Route
 }
 

@@ -45,11 +45,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ondumusic.player.BuildConfig
 import com.ondumusic.player.R
 import com.ondumusic.player.settings.AccentColor
 import com.ondumusic.player.settings.DownloadQuality
@@ -57,6 +59,8 @@ import com.ondumusic.player.settings.SettingsStore
 import com.ondumusic.player.settings.StreamingQuality
 import com.ondumusic.player.ui.LocalContainer
 import com.ondumusic.player.ui.LocalSession
+import com.ondumusic.player.ui.navigation.LocalNavigator
+import com.ondumusic.player.ui.navigation.Route
 import com.ondumusic.player.ui.components.ScreenScaffold
 import com.ondumusic.player.ui.theme.accentSeed
 import kotlinx.coroutines.delay
@@ -82,6 +86,7 @@ fun SettingsScreen() {
             item { DownloadsSection(settings) }
             item { LibrarySection() }
             item { AccountSection() }
+            item { AboutSection() }
         }
     }
 }
@@ -393,6 +398,27 @@ private fun AccountSection() {
     )
     if (confirmSignOut) SignOutDialog(onDismiss = { confirmSignOut = false })
 }
+
+@Composable
+private fun AboutSection() {
+    val uriHandler = LocalUriHandler.current
+    val navigator = LocalNavigator.current
+    SectionHeader(stringResource(R.string.settings_about))
+    // Version and build, so a report can name the exact build.
+    ValueRow(stringResource(R.string.settings_version), "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+    ValueRow(stringResource(R.string.settings_website), "ondumusic.com") { uriHandler.openUri(WEBSITE_URL) }
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.settings_privacy_policy)) },
+        modifier = Modifier.clickable { uriHandler.openUri(PRIVACY_POLICY_URL) },
+    )
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.settings_licenses)) },
+        modifier = Modifier.clickable { navigator.push(Route.Licenses) },
+    )
+}
+
+private const val WEBSITE_URL = "https://ondumusic.com"
+private const val PRIVACY_POLICY_URL = "https://ondumusic.com/privacy.html"
 
 /** Signing out discards everything on the device for this account, so it always asks. */
 @Composable

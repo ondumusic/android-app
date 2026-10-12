@@ -64,4 +64,10 @@
     <string name="settings_server_version">Server version</string>
     <string name="sign_out_title">Sign out?</string>
     <string name="sign_out_message">This will remove all offline data including downloads, cached artwork, and your synced library from this device.</string>
+
+    <string name="settings_about">About</string>
+    <string name="settings_version">Version</string>
+    <string name="settings_website">Website</string>
+    <string name="settings_privacy_policy">Privacy policy</string>
+    <string name="settings_licenses">Open source licenses</string>
 </resources>

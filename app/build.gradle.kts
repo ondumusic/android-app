@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.room)
+    alias(libs.plugins.aboutlibraries)
 }
 
 android {
@@ -75,6 +76,19 @@ room {
     schemaDirectory("$projectDir/schemas")
 }
 
+// The licenses screen's data, generated from the dependencies at build time. JetBrains'
+// multiplatform Compose and lifecycle artifacts only point at the androidx ones on Android, so
+// they're left out rather than listed twice. A library without a known license fails the build.
+aboutLibraries {
+    library {
+        requireLicense = true
+        exclusionPatterns.addAll(
+            Regex("""org\.jetbrains\.compose\..*""").toPattern(),
+            Regex("""org\.jetbrains\.androidx\..*""").toPattern(),
+        )
+    }
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)
@@ -107,6 +121,7 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.okhttp)
     implementation(libs.material.kolor)
+    implementation(libs.aboutlibraries.compose.m3)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
