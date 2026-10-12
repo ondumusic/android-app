@@ -13,8 +13,9 @@ import com.ondumusic.player.settings.SettingsStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
@@ -79,7 +80,7 @@ class DownloadAllScaleTest {
             // not milliseconds.
             assertTrue("downloadAll took ${elapsed}ms for ${tracks.size} tracks", elapsed < 2000)
         } finally {
-            scope.cancel()
+            scope.coroutineContext.job.cancelAndJoin()
             db.close()
         }
     }

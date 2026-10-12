@@ -62,6 +62,11 @@ android {
         unitTests.all {
             // Robolectric's Android 16 runtime reaches into JDK internals for shared memory.
             it.jvmArgs("--add-exports", "java.base/jdk.internal.access=ALL-UNNAMED")
+            // The whole trace in the build output, so a failure on CI can be read from its log.
+            it.testLogging {
+                events("failed")
+                exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+            }
         }
     }
 }

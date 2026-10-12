@@ -24,6 +24,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
@@ -108,7 +109,11 @@ class DownloadServiceTest {
     fun tearDown() {
         gate.countDown()
         scopes.forEach { it.cancel() }
+        // Closing the server unblocks transfers stuck reading a response. The services have to
+        // be gone before the database closes: one still mid-query would throw, and the
+        // exception surfaces in whichever coroutine test happens to run next.
         server.close()
+        runBlocking { scopes.forEach { it.coroutineContext.job.join() } }
         db.close()
         filesDir.deleteRecursively()
     }
