@@ -105,7 +105,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$VERSION" \
+          # Versions before 1.0 are untested pre-releases, and GitHub labels them so.
+          prerelease=$([ "${VERSION_NAME%%.*}" = 0 ] && echo --prerelease || true)
+          gh release create "$VERSION" $prerelease \
             --title "Ondu $VERSION_NAME" \
             --notes-file "$RUNNER_TEMP/notes.md" \
             dist/*

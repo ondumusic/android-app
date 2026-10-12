@@ -133,7 +133,8 @@ Pushing a version tag (`0.2.0`, no `v`, as for the server) runs `.github/workflo
 3. builds the release APK, signed with the key from the secrets,
 4. checks it isn't signed with a debug key,
 5. publishes a GitHub release named after the tag, with that changelog section as notes and
-   `ondu-0.2.0.apk` plus its SHA-256 checksum attached,
+   `ondu-0.2.0.apk` plus its SHA-256 checksum attached; versions below `1.0.0` are marked
+   as pre-releases,
 6. keeps `mapping.txt` with the workflow run (see step 5).
 
 Follow it under the repository's **Actions** tab. When it's done, the APK is on the
