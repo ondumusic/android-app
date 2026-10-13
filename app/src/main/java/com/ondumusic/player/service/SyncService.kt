@@ -184,8 +184,9 @@ class SyncService(
                 library.upsertPlaylistItems(response.playlistItems)
                 library.applyDeletions(response.deletions)
 
-                // Only newly added albums are worth prefetching.
-                response.albums.filter { it.id in newAlbumIds }.mapNotNullTo(artworkUrls) { it.resolvedArtworkUrl }
+                // Only newly added albums are worth prefetching, in the rendition the grid draws.
+                response.albums.filter { it.id in newAlbumIds }
+                    .mapNotNullTo(artworkUrls) { it.artwork.covering(ArtworkSize.Medium.pixels)?.url ?: it.resolvedArtworkUrl }
 
                 _notices.value = response.notices.map { it.toNotice() }
 

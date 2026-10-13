@@ -9,6 +9,8 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.cache.SimpleCache
 import coil3.SingletonImageLoader
+import coil3.request.CachePolicy
+import coil3.request.ImageRequest
 import com.ondumusic.player.api.ApiClient
 import com.ondumusic.player.auth.AuthService
 import com.ondumusic.player.auth.KeystoreTokenStore
@@ -21,6 +23,7 @@ import com.ondumusic.player.player.PlaybackCacheEvictor
 import com.ondumusic.player.player.PlaybackStateStore
 import com.ondumusic.player.player.PlayerService
 import com.ondumusic.player.player.SessionPlayer
+import com.ondumusic.player.service.ArtworkPrefetcher
 import com.ondumusic.player.service.NetworkMonitor
 import com.ondumusic.player.ui.navigation.LaunchActions
 import com.ondumusic.player.service.PendingPlaylistEdits
@@ -123,6 +126,16 @@ class AppContainer(context: Context) {
 
     val launchActions = LaunchActions()
 
+    private val artworkPrefetcher = ArtworkPrefetcher(scope) { url ->
+        val request = ImageRequest.Builder(appContext)
+            .data(url)
+            // Only the disk copy is wanted; the lists decode at their own size when they draw it.
+            .memoryCachePolicy(CachePolicy.DISABLED)
+            .size(1)
+            .build()
+        SingletonImageLoader.get(appContext).execute(request)
+    }
+
     private val _session = MutableStateFlow<Session?>(null)
     val session: StateFlow<Session?> = _session.asStateFlow()
 
@@ -150,6 +163,7 @@ class AppContainer(context: Context) {
                     // Signing out discards this account's data on purpose; a fresh launch with
                     // nobody signed in has nothing to discard.
                     if (hadSession) {
+                        artworkPrefetcher.clear()
                         player.stopAndClear()
                         playlistEdits.discardAll()
                         clearPlaybackCache()
@@ -198,6 +212,7 @@ class AppContainer(context: Context) {
                 onUnauthorized = auth::markSessionExpired,
                 downloadTracks = { ids -> scope.launch { downloads.downloadTracks(ids) } },
                 reconcileDownloads = { initialSync -> library.reconcileDownloadedFiles(deleteOrphans = initialSync) },
+                prefetchArtwork = artworkPrefetcher::prefetch,
             ),
         )
         return Session(api, sync)
