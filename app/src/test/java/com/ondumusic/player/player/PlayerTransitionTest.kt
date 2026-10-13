@@ -299,6 +299,54 @@ class PlayerTransitionTest {
         assertEquals(0, unauthorized)
     }
 
+    @Test
+    fun signingBackInResumesWhatTheExpiryStopped() = runTest {
+        val player = makePlayer(engine)
+        player.playNowQueue(album(2))
+        runCurrent()
+        player.seek(42.0)
+        engine.fail(PlaybackError.Unauthorized)
+        assertTrue(player.resumesAfterSignIn)
+
+        player.resumeAfterSignIn()
+        runCurrent()
+
+        assertEquals(2, engine.plays.size)
+        assertEquals(engine.plays[0].source, engine.plays[1].source)
+        assertEquals(42.0, engine.plays[1].startAt, 0.0)
+        assertTrue(player.s.isPlaying)
+        assertFalse(player.resumesAfterSignIn)
+    }
+
+    @Test
+    fun signingInAfterAnUnrelatedFailureDoesNotStartPlayback() = runTest {
+        val player = makePlayer(engine)
+        player.playNowQueue(album(2))
+        runCurrent()
+        engine.fail(PlaybackError.Unplayable)
+
+        player.resumeAfterSignIn()
+        runCurrent()
+
+        assertEquals(1, engine.plays.size)
+        assertFalse(player.s.isPlaying)
+    }
+
+    @Test
+    fun clearingTheQueueAfterAnExpiryCancelsTheResume() = runTest {
+        val player = makePlayer(engine)
+        player.playNowQueue(album(2))
+        runCurrent()
+        engine.fail(PlaybackError.Unauthorized)
+
+        player.stopAndClear()
+        player.resumeAfterSignIn()
+        runCurrent()
+
+        assertEquals(1, engine.plays.size)
+        assertFalse(player.s.isPlaying)
+    }
+
     /** Signed out there's nothing to resolve a relative stream against. */
     @Test
     fun aStreamWithNowhereToComeFromFailsAsUnplayable() = runTest {

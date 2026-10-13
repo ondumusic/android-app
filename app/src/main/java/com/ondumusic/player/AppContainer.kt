@@ -132,9 +132,19 @@ class AppContainer(context: Context) {
             var hadSession = false
             auth.api.collect { api ->
                 if (api != null) {
-                    _session.value = makeSession(api)
+                    val session = makeSession(api)
+                    _session.value = session
+                    if (hadSession) {
+                        // One session replacing another is signing back in after an expiry.
+                        // Every sync that would have run in the meantime failed, so the library
+                        // can be well behind; sync() sends the outbox first. A first sign-in
+                        // gets its sync from the progress screen.
+                        scope.launch { session.sync.sync() }
+                        player.resumeAfterSignIn()
+                    } else {
+                        outbox.drainSoon()
+                    }
                     hadSession = true
-                    outbox.drainSoon()
                 } else {
                     _session.value = null
                     // Signing out discards this account's data on purpose; a fresh launch with

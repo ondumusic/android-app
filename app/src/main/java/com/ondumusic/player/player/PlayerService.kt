@@ -161,6 +161,14 @@ class PlayerService(
     private var playbackError: PlaybackError? = null
 
     /**
+     * Set only while an expired session is what stopped playback. Anything else that stops
+     * it — another failure, starting something, clearing the queue — means the user wasn't
+     * left mid-listen by the expiry, and signing back in shouldn't start playback.
+     */
+    var resumesAfterSignIn = false
+        private set
+
+    /**
      * True once the user has shaped this queue by hand — Play Next, Add to Queue, reorder,
      * remove. Replacing a queue you built is worth offering to undo; replacing one that is
      * just "the album I pressed play on" is not.
@@ -484,6 +492,7 @@ class PlayerService(
 
     /** Stops playback and empties the player, as before anything was asked for. Sign-out needs this. */
     fun stopAndClear() {
+        resumesAfterSignIn = false
         _undoable.value = null
         cancelLoading()
         engine.stop()
@@ -648,6 +657,7 @@ class PlayerService(
     }
 
     private fun loadAndPlayCurrent() {
+        resumesAfterSignIn = false
         cancelLoading()
         val idx = effectiveIndex
         val item = queue.getOrNull(idx) ?: return
@@ -713,7 +723,15 @@ class PlayerService(
         engine.pause()
         playbackError = error
         publish()
-        if (error == PlaybackError.Unauthorized) hooks.onUnauthorized()
+        resumesAfterSignIn = error == PlaybackError.Unauthorized
+        if (resumesAfterSignIn) hooks.onUnauthorized()
+    }
+
+    /** Signing back in is asking to keep listening, when the expiry is what stopped it. */
+    fun resumeAfterSignIn() {
+        if (!resumesAfterSignIn) return
+        currentTrack?.let { pendingResume = it.id to _progress.value }
+        loadAndPlayCurrent()
     }
 
     // Loudness
