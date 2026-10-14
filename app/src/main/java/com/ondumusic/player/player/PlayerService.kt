@@ -874,7 +874,7 @@ class PlayerService(
     private fun tick() {
         val position = engine.position
         _progress.value = position
-        engine.duration?.takeIf { it > 0 && it != duration }?.let {
+        measuredDuration(engine.duration, known = currentTrack?.duration)?.takeIf { it != duration }?.let {
             duration = it
             publish()
         }
@@ -971,11 +971,20 @@ class PlayerService(
         fun seconds(duration: Double): Double = if (duration <= 0) CAP else minOf(duration / 2, CAP)
     }
 
-    private companion object {
-        const val TICK_MILLIS = 500L
-        const val POSITION_SAVE_INTERVAL_MILLIS = 5_000L
+    companion object {
+        /**
+         * The engine's length for the current source, when the track's own isn't known. Only
+         * then: a stream transcoded as it's served has no length up front, so the decoder's
+         * figure is an estimate from what has arrived — under a second early on, which showed
+         * as 0:00 with the progress far past the end.
+         */
+        fun measuredDuration(engineDuration: Double?, known: Double?): Double? =
+            engineDuration?.takeIf { (known ?: 0.0) <= 0 && it.isFinite() && it > 0 }
+
+        private const val TICK_MILLIS = 500L
+        private const val POSITION_SAVE_INTERVAL_MILLIS = 5_000L
         /** How long a stream may sit unready before it counts as failed. A rejected token can produce no error of its own. */
-        const val STALL_TIMEOUT_MILLIS = 15_000L
+        private const val STALL_TIMEOUT_MILLIS = 15_000L
     }
 }
 
