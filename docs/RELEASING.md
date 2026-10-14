@@ -187,8 +187,8 @@ The certificate's SHA-256 must match the key's fingerprint from step 1. Then, in
 are right. If it fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE` (wrong key) or
 `INSTALL_FAILED_VERSION_DOWNGRADE` (code not raised), don't share it.
 
-The release build has the ID `com.ondumusic.player` and the name "Ondu". It installs
-alongside the debug build ("Ondu Dev", `com.ondumusic.player.dev`) without touching it.
+The release build has the ID `com.ondumusic.ondu` and the name "Ondu". It installs
+alongside the debug build ("Ondu Dev", `com.ondumusic.ondu.dev`) without touching it.
 
 ## 5. Archive
 

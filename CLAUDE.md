@@ -54,7 +54,7 @@ They expose state as `StateFlow`s; screens collect them.
 
 |            | debug                      | release              |
 | ---------- | -------------------------- | -------------------- |
-| App ID     | `com.ondumusic.player.dev` | `com.ondumusic.player` |
+| App ID     | `com.ondumusic.ondu.dev`   | `com.ondumusic.ondu` |
 | Name       | Ondu Dev                   | Ondu                 |
 | Cleartext  | allowed                    | refused              |
 

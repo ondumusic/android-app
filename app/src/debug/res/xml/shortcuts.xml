@@ -9,7 +9,7 @@
         <intent
             android:action="com.ondumusic.player.action.SHUFFLE_ALL"
             android:targetClass="com.ondumusic.player.MainActivity"
-            android:targetPackage="com.ondumusic.player.dev" />
+            android:targetPackage="com.ondumusic.ondu.dev" />
     </shortcut>
     <shortcut
         android:shortcutId="search"
@@ -18,7 +18,7 @@
         <intent
             android:action="com.ondumusic.player.action.SEARCH"
             android:targetClass="com.ondumusic.player.MainActivity"
-            android:targetPackage="com.ondumusic.player.dev" />
+            android:targetPackage="com.ondumusic.ondu.dev" />
     </shortcut>
     <shortcut
         android:shortcutId="downloads"
@@ -27,6 +27,6 @@
         <intent
             android:action="com.ondumusic.player.action.DOWNLOADS"
             android:targetClass="com.ondumusic.player.MainActivity"
-            android:targetPackage="com.ondumusic.player.dev" />
+            android:targetPackage="com.ondumusic.ondu.dev" />
     </shortcut>
 </shortcuts>
