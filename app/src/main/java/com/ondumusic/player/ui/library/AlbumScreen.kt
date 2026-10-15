@@ -69,6 +69,9 @@ fun AlbumScreen(albumId: UUID, downloadedOnly: Boolean = false) {
     // reads as duplicate rows without something in between.
     val discs = tracks.orEmpty().groupBy { it.disc }.toSortedMap()
     val multiDisc = discs.size > 1
+    // A compilation or a split release: the album's artist says nothing about who's on
+    // each track, so the rows say it themselves.
+    val multipleArtists = tracks.orEmpty().distinctBy { it.artist.id }.size > 1
 
     if (downloadedOnly && tracks?.isEmpty() == true) LaunchedEffect(Unit) { navigator.pop() }
 
@@ -137,7 +140,7 @@ fun AlbumScreen(albumId: UUID, downloadedOnly: Boolean = false) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 4.dp))
                     }
                 }
-                items(discTracks, key = { it.id }) { track -> TrackRow(track, onClick = { play(start = track) }) }
+                items(discTracks, key = { it.id }) { track -> TrackRow(track, onClick = { play(start = track) }, showArtist = multipleArtists) }
             }
             if (tracks?.isEmpty() == true) item { EmptyState(Icons.Outlined.MusicNote, stringResource(R.string.no_tracks)) }
         }
