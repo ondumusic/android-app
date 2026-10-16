@@ -1,0 +1,13 @@
+version: 2
+updates:
+  # Libraries and plugins, via gradle/libs.versions.toml.
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+
+  # Keeps the actions in .github/workflows current.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
