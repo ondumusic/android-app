@@ -652,6 +652,28 @@ class DownloadServiceTest {
 
     // Transfers
 
+    /** The same server under another name: to the app that's another host, which never gets the token. */
+    @Test
+    fun aDownloadUrlOnAnotherHostIsFetchedWithoutTheToken() = runBlocking {
+        respond = { audioResponse() }
+        val service = service()
+        seed(0)
+        val otherHost = if (server.hostName == "localhost") "127.0.0.1" else "localhost"
+        val elsewhere = server.url("/elsewhere/download").newBuilder().host(otherHost).build()
+        val id = UUID.randomUUID()
+        library.upsertTracks(listOf(
+            SyncTrack(id, artistId, artistId, albumId, "Track 1", 1, 1, 200.0, "audio/flac", "/api/tracks/$id/stream", elsewhere.toString(), now),
+        ))
+
+        service.download(library.tracks(listOf(id)).getValue(id))
+        service.awaitIdle()
+
+        assertTrue(id in library.downloadedTrackIds())
+        val request = requests.single()
+        assertEquals("/elsewhere/download", request.url.encodedPath)
+        assertNull(request.headers["Authorization"])
+    }
+
     @Test
     fun downloadsTheOriginalAndRecordsIt() = runBlocking {
         respond = { audioResponse() }

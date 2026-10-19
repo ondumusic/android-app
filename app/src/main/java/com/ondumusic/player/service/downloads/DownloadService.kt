@@ -708,8 +708,9 @@ class DownloadService(
         return dir?.listFiles { file -> file.name.startsWith("${track.id}.") && file.name.endsWith(".part") }?.toList().orEmpty()
     }
 
+    /** The token only goes to the server signed in to; see [ApiClient.mayReceiveToken]. */
     private fun authorized(api: ApiClient, url: HttpUrl) =
-        Request.Builder().url(url).header("Authorization", "Bearer ${api.sessionToken}")
+        Request.Builder().url(url).apply { if (api.mayReceiveToken(url)) header("Authorization", "Bearer ${api.sessionToken}") }
 
     private fun contentRangeStart(response: Response): Long? =
         response.header("Content-Range")?.removePrefix("bytes ")?.substringBefore('-')?.trim()?.toLongOrNull()

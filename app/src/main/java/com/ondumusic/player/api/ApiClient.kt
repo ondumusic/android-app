@@ -23,6 +23,13 @@ class ApiClient(
     val sessionToken: String,
     private val http: OkHttpClient,
 ) {
+    /**
+     * Whether [url] may carry the session token. Stream and download URLs arrive in the
+     * server's own data; one pointing at another host is requested without the token
+     * rather than handing it to that host.
+     */
+    fun mayReceiveToken(url: HttpUrl): Boolean = isSameOrigin(url, baseUrl)
+
     private fun request(endpoint: String, query: Map<String, String> = emptyMap()): Request.Builder {
         val url = baseUrl.appendingPath(endpoint).newBuilder()
             .apply { query.forEach { (k, v) -> addQueryParameter(k, v) } }
@@ -147,6 +154,10 @@ class ApiClient(
         private val JSON = "application/json".toMediaType()
 
         private fun jsonBody(json: String) = json.toRequestBody(JSON)
+
+        /** Same scheme, host and port. [HttpUrl] already lowercases the host and fills in a default port. */
+        fun isSameOrigin(url: HttpUrl, base: HttpUrl): Boolean =
+            url.scheme == base.scheme && url.host == base.host && url.port == base.port
 
         private fun emptyBodyFor(method: String): RequestBody? =
             if (method == "POST" || method == "PUT" || method == "PATCH") ByteArray(0).toRequestBody() else null

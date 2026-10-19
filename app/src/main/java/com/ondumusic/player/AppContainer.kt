@@ -42,6 +42,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -109,7 +110,10 @@ class AppContainer(context: Context) {
         playbackCache.keys.toList().forEach(playbackCache::removeResource)
     }
 
-    private val engine = ExoPlaybackEngine(context, playbackCache) { auth.api.value?.sessionToken }
+    private val engine = ExoPlaybackEngine(context, playbackCache) { uri ->
+        auth.api.value?.takeIf { api -> uri.toString().toHttpUrlOrNull()?.let(api::mayReceiveToken) == true }
+            ?.let { "Bearer ${it.sessionToken}" }
+    }
 
     val player = PlayerService(
         engine, settings, library,

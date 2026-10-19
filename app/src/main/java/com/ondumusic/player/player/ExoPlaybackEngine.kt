@@ -1,6 +1,7 @@
 package com.ondumusic.player.player
 
 import android.content.Context
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import androidx.annotation.OptIn
@@ -14,6 +15,7 @@ import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.HttpDataSource
+import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.cache.Cache
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.exoplayer.ExoPlayer
@@ -32,18 +34,19 @@ import kotlin.math.sin
 class ExoPlaybackEngine(
     private val context: Context,
     cache: Cache,
-    /** Read per request, so a re-auth's new token reaches streams without rebuilding anything. */
-    private val sessionToken: () -> String?,
+    /**
+     * The Authorization header for a request to this URL, or null to send none. Read per
+     * request, so a re-auth's new token reaches streams without rebuilding anything.
+     */
+    private val authorization: (Uri) -> String?,
 ) : PlaybackEngine {
     override var listener: PlaybackEngine.Listener? = null
 
     private val handler = Handler(Looper.getMainLooper())
 
     private val dataSourceFactory: DataSource.Factory = run {
-        val http = DataSource.Factory {
-            DefaultHttpDataSource.Factory()
-                .setDefaultRequestProperties(sessionToken()?.let { mapOf("Authorization" to "Bearer $it") } ?: emptyMap())
-                .createDataSource()
+        val http = ResolvingDataSource.Factory(DefaultHttpDataSource.Factory()) { spec ->
+            authorization(spec.uri)?.let { spec.withAdditionalHeaders(mapOf("Authorization" to it)) } ?: spec
         }
         // Streams are cached as they play, so a replay or a seek back costs nothing; local
         // files bypass it.
