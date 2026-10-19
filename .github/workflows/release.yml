@@ -22,7 +22,7 @@ jobs:
       VERSION: ${{ github.ref_name }}
       IS_RELEASE: ${{ github.event_name == 'push' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Read the app's version
         run: |
