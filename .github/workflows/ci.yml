@@ -28,7 +28,11 @@ jobs:
       - name: Install Android SDK packages
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0" "build-tools;37.0.0" > /dev/null
 
+      # The open-source cache on GitHub's own storage; the default is a proprietary
+      # component whose terms of use the action asks every project to accept.
       - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
 
       - name: Unit tests
         run: ./gradlew :app:testDebugUnitTest
