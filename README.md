@@ -3,8 +3,7 @@ The official Android client for [Ondu](https://ondumusic.com).
 
 > [!WARNING]
 > **Work in progress.** The Android app is an early pre-release that hasn't been
-> tested on real phones yet, only on the emulator. Expect bugs, and don't rely on
-> it as your only way to listen. Version 1.0 will be the first tested release.
+> tested on real phones yet, only on the emulator. Use at your own risk.
 
 ## Disclaimer
 This repo contains almost entirely LLM generated code and documentation. It is a
@@ -18,19 +17,12 @@ not had real humans test this on real devices yet.
 - An Ondu server you host yourself, reachable over https, see the
   [setup guide](https://ondumusic.com/setup.html)
 
-No Google Play Services needed, so it also runs on de-Googled phones.
+It does not use Google Play Services, so it also runs on de-Googled phones.
 
 ## Installing
-Ondu isn't on Google Play. Download the APK of the newest version from the
-[releases page](../../releases) on your phone and open it:
-
-1. Android asks to allow installs from the app you opened it with (your browser
-   or Files). Allow it, then go back.
-2. Tap **Install**. Google Play Protect may say it doesn't recognise the
-   developer; choose **More details → Install anyway**.
-
-To update, install a newer APK the same way. Your library, downloads and sign-in
-are kept.
+Ondu isn't on Google Play right now. Since it's still early we don't have
+official [releases](../../releases) yet, but you can find an APK in the
+`Release` GitHub Action if you are willing to try.
 
 ## Privacy
 The app only talks to the server you sign in to. There is no analytics, tracking
