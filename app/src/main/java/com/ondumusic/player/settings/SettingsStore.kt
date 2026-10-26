@@ -9,8 +9,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+/** A level rather than a server preset: which preset a level maps to depends on what the server offers, see `TranscodePreset`. */
 enum class DownloadQuality(val raw: String) {
-    Original("original"), DefaultAac("default_aac"), MobileAac("mobile_aac");
+    Original("original"), High("high"), Mobile("mobile");
 
     companion object {
         fun fromRaw(raw: String?) = entries.firstOrNull { it.raw == raw } ?: Original
@@ -18,7 +19,7 @@ enum class DownloadQuality(val raw: String) {
 }
 
 enum class StreamingQuality(val raw: String) {
-    Original("original"), DefaultAdts("default_adts"), MobileAdts("mobile_adts");
+    Original("original"), High("high"), Mobile("mobile");
 
     companion object {
         fun fromRaw(raw: String?) = entries.firstOrNull { it.raw == raw } ?: Original

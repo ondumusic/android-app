@@ -2,7 +2,6 @@
 <resources>
     <!-- Why a download failed -->
     <string name="download_error_http">The server couldn’t send this song (HTTP %1$d).</string>
-    <string name="download_error_transcode">The server couldn’t convert this song for download.</string>
     <string name="download_error_save">The download couldn’t be saved.</string>
     <string name="download_error_no_link">This song has no download link.</string>
 

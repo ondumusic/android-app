@@ -23,9 +23,9 @@ import com.ondumusic.player.data.removeArtistDownloads
 import com.ondumusic.player.data.removeDownloads
 import com.ondumusic.player.data.setDownloadsPaused
 import com.ondumusic.player.model.Track
-import com.ondumusic.player.settings.DownloadQuality
 import com.ondumusic.player.settings.SettingsStore
 import com.ondumusic.player.util.AudioFormat
+import com.ondumusic.player.util.TranscodePreset
 import com.ondumusic.player.util.UiText
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -108,7 +108,7 @@ class DownloadService(
         val io: CoroutineDispatcher = Dispatchers.IO,
     )
 
-    /** Transcode prepare waits for the whole file to be encoded, and a download may stall; both get iOS's 300 s. */
+    /** A download may stall; it gets iOS's 300 s. */
     private val http = http.newBuilder().readTimeout(300, TimeUnit.SECONDS).build()
 
     private val _state = MutableStateFlow(DownloadsState())
@@ -587,21 +587,17 @@ class DownloadService(
         if (library.isDownloaded(track.id)) return Outcome.Done
         val api = api.value ?: return Outcome.Requeue(waitForNetwork = false)
 
-        val quality = settings.downloadQuality.value
-        // Formats ExoPlayer can't play are transcoded even when the setting is Original.
-        val transcode = quality != DownloadQuality.Original || !AudioFormat.isPlayableNatively(track.mimetype)
-        val preset = if (quality != DownloadQuality.Original) quality.raw else DownloadQuality.DefaultAac.raw
+        val preset = TranscodePreset.forDownload(settings.downloadQuality.value, track.mimetype)
         val base = track.downloadUrl.toHttpUrlOrNull() ?: api.baseUrl.resolve(track.downloadUrl)
             ?: return Outcome.Failed(UiText.Res(R.string.download_error_no_link))
-        val url = if (transcode) base.newBuilder().addQueryParameter("transcode", "1").addQueryParameter("preset", preset).build() else base
+        val url = if (preset != null) base.newBuilder().addQueryParameter("transcode", "1").addQueryParameter("preset", preset).build() else base
         // Named for what it holds, so a quality change between pause and resume can't splice two encodings.
-        val part = partFile(track, if (transcode) preset else ORIGINAL_VARIANT)
+        val part = partFile(track, preset ?: ORIGINAL_VARIANT)
 
         var retries = 0
         while (true) {
             val fetched = try {
-                val expectedSize = if (transcode) prepareTranscode(api, track.id, preset) else null
-                fetch(api, url, part, track.id, expectedSize)
+                fetch(api, url, part, track.id)
             } catch (e: IOException) {
                 if (!isOnline.value) return Outcome.Requeue(waitForNetwork = true)
                 if (retries >= MAX_RETRIES) throw e
@@ -610,7 +606,7 @@ class DownloadService(
                 continue
             }
             when (fetched) {
-                is Fetched.Complete -> return save(track, part, fetched.mimetype ?: if (transcode) TRANSCODED_MIMETYPE else track.mimetype)
+                is Fetched.Complete -> return save(track, part, fetched.mimetype ?: if (preset != null) TranscodePreset.MIMETYPE else track.mimetype)
                 Fetched.Restart -> {
                     part.delete()
                     continue
@@ -626,30 +622,7 @@ class DownloadService(
         }
     }
 
-    /**
-     * Asks the server to transcode ahead of the download, so the download itself has a
-     * known size and real progress. The endpoint answers in server-sent events; the first
-     * `data:` line carrying a size means it's ready.
-     */
-    private suspend fun prepareTranscode(api: ApiClient, trackId: UUID, preset: String): Long {
-        val url = api.baseUrl.appendingPath("tracks/$trackId/transcode").newBuilder().addQueryParameter("preset", preset).build()
-        return http.newCall(authorized(api, url).build()).blockingUse { response ->
-            if (response.code == 401) throw Stop(Outcome.Unauthorized)
-            if (!response.isSuccessful) throw Stop(Outcome.Failed(UiText.Res(R.string.download_error_transcode)))
-            val source = response.body.source()
-            while (true) {
-                val line = source.readUtf8Line() ?: break
-                if (!line.startsWith("data: ")) continue
-                val size = runCatching {
-                    Json.parseToJsonElement(line.removePrefix("data: ")).jsonObject["size"]?.jsonPrimitive?.longOrNull
-                }.getOrNull()
-                if (size != null) return@blockingUse size
-            }
-            throw Stop(Outcome.Failed(UiText.Res(R.string.download_error_transcode)))
-        }
-    }
-
-    private suspend fun fetch(api: ApiClient, url: HttpUrl, part: File, trackId: UUID, expectedSize: Long?): Fetched {
+    private suspend fun fetch(api: ApiClient, url: HttpUrl, part: File, trackId: UUID): Fetched {
         withContext(timing.io) { part.parentFile?.mkdirs() }
         val offset = if (part.exists()) part.length() else 0L
         val request = authorized(api, url).apply { if (offset > 0) header("Range", "bytes=$offset-") }.build()
@@ -667,7 +640,7 @@ class DownloadService(
             val resumes = offset > 0 && response.code == 206 && contentRangeStart(response) == offset
             val start = if (resumes) offset else 0L
             val length = response.body.contentLength()
-            val total = if (length >= 0) start + length else expectedSize ?: -1L
+            val total = if (length >= 0) start + length else -1L
             FileOutputStream(part, resumes).use { out ->
                 val source = response.body.source()
                 val buffer = ByteArray(64 * 1024)
@@ -739,8 +712,6 @@ class DownloadService(
         const val MINIMUM_FILE_BYTES = 1024L
         const val MAX_RETRIES = 3
         const val ORIGINAL_VARIANT = "original"
-        /** What the AAC presets produce, for a response that doesn't say. */
-        const val TRANSCODED_MIMETYPE = "audio/mp4"
         val MP4_EXTENSIONS = setOf("m4a", "mp4")
         val BUSY_CODES = setOf(408, 429, 502, 503, 504)
     }

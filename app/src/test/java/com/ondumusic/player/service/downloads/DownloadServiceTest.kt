@@ -699,73 +699,43 @@ class DownloadServiceTest {
         assertNull(request.url.queryParameter("transcode"))
     }
 
+    /** An Opus transcode is sized from its first byte, so there is nothing to prepare: the download starts at once. */
     @Test
-    fun aLowerQualityPreparesTheTranscodeFirst() = runBlocking {
-        settings.downloadQuality.value = DownloadQuality.MobileAac
-        val body = m4a()
-        respond = { request ->
-            if (request.url.encodedPath.endsWith("/transcode")) {
-                MockResponse.Builder().addHeader("Content-Type", "text/event-stream")
-                    .body("event: progress\ndata: {\"percent\": 50}\n\nevent: ready\ndata: {\"size\": ${body.size}}\n\n").build()
-            } else {
-                audioResponse(body, "audio/mp4")
-            }
-        }
+    fun aLowerQualityDownloadsTheTranscodeDirectly() = runBlocking {
+        settings.downloadQuality.value = DownloadQuality.Mobile
+        respond = { audioResponse(audio, "audio/ogg") }
         val service = service()
         val track = seedOne()
 
         service.download(track)
         service.awaitIdle()
 
-        val (prepare, download) = requests.toList()
-        assertEquals("/api/tracks/${track.id}/transcode", prepare.url.encodedPath)
-        assertEquals("mobile_aac", prepare.url.queryParameter("preset"))
-        assertEquals("GET", prepare.method)
+        val download = requests.single()
         assertEquals("1", download.url.queryParameter("transcode"))
-        assertEquals("mobile_aac", download.url.queryParameter("preset"))
-        assertEquals(downloadRelativePath(artistId, albumId, track.id, "m4a"), db.tracks().get(track.id)!!.track.localFilePath)
+        assertEquals("mobile_ogg", download.url.queryParameter("preset"))
+        assertEquals(downloadRelativePath(artistId, albumId, track.id, "ogg"), db.tracks().get(track.id)!!.track.localFilePath)
     }
+
 
     @Test
     fun aFormatExoPlayerCantPlayIsTranscodedEvenAtOriginalQuality() = runBlocking {
-        respond = { request ->
-            if (request.url.encodedPath.endsWith("/transcode")) {
-                MockResponse.Builder().body("data: {\"size\": 1}\n\n").build()
-            } else {
-                audioResponse(m4a(), "audio/mp4")
-            }
-        }
+        respond = { audioResponse(audio, "audio/ogg") }
         val service = service()
         val track = seedOne(mimetype = "audio/aiff")
 
         service.download(track)
         service.awaitIdle()
 
-        assertEquals("default_aac", requests.first().url.queryParameter("preset"))
-        assertTrue(track.id in library.downloadedTrackIds())
+        assertEquals("default_ogg", requests.single().url.queryParameter("preset"))
+        assertEquals(downloadRelativePath(artistId, albumId, track.id, "ogg"), db.tracks().get(track.id)!!.track.localFilePath)
     }
 
-    @Test
-    fun aTranscodeThatNeverReportsASizeFails() = runBlocking {
-        settings.downloadQuality.value = DownloadQuality.DefaultAac
-        respond = { MockResponse.Builder().body("event: error\ndata: {\"error\": \"ffmpeg\"}\n\n").build() }
-        val service = service()
-        service.download(seedOne())
-
-        awaitUntil("the failure") { service.state.value.failed.isNotEmpty() }
-        assertEquals(UiText.Res(R.string.download_error_transcode), service.state.value.failed.single().reason)
-        assertEquals("only the prepare was asked for", 1, requests.size)
-    }
 
     @Test
     fun anM4aWithoutItsIndexIsRejected() = runBlocking {
-        settings.downloadQuality.value = DownloadQuality.DefaultAac
-        respond = { request ->
-            if (request.url.encodedPath.endsWith("/transcode")) MockResponse.Builder().body("data: {\"size\": 1}\n").build()
-            else audioResponse(m4a(withMoov = false), "audio/mp4")
-        }
+        respond = { audioResponse(m4a(withMoov = false), "audio/mp4") }
         val service = service()
-        val track = seedOne()
+        val track = seedOne(mimetype = "audio/mp4")
         service.download(track)
 
         awaitUntil("the failure") { service.state.value.failed.isNotEmpty() }
@@ -842,7 +812,7 @@ class DownloadServiceTest {
     @Test
     fun aPartialOfAnotherQualityIsNotSplicedIn() = runBlocking {
         val track = seedOne()
-        val stale = File(filesDir, downloadRelativePath(artistId, albumId, track.id, "mobile_aac.part"))
+        val stale = File(filesDir, downloadRelativePath(artistId, albumId, track.id, "mobile_ogg.part"))
         stale.parentFile!!.mkdirs()
         stale.writeBytes(ByteArray(1000))
         respond = { audioResponse() }
@@ -965,8 +935,8 @@ class DownloadServiceTest {
     }
 
     @Test
-    fun aRejectedTranscodePrepareAlsoPauses() = runBlocking {
-        settings.downloadQuality.value = DownloadQuality.MobileAac
+    fun aRejectedTranscodeDownloadAlsoPauses() = runBlocking {
+        settings.downloadQuality.value = DownloadQuality.Mobile
         respond = { MockResponse.Builder().code(401).build() }
         val service = service()
         service.download(seedOne())

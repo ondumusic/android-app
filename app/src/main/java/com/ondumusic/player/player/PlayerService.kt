@@ -7,8 +7,7 @@ import com.ondumusic.player.model.RepeatMode
 import com.ondumusic.player.model.Track
 import com.ondumusic.player.service.SmartShuffle
 import com.ondumusic.player.settings.SettingsStore
-import com.ondumusic.player.settings.StreamingQuality
-import com.ondumusic.player.util.AudioFormat
+import com.ondumusic.player.util.TranscodePreset
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -696,10 +695,7 @@ class PlayerService(
     fun streamUrl(track: Track): HttpUrl? {
         val base = hooks.baseUrl()
         val url = track.streamUrl.toHttpUrlOrNull() ?: base?.resolve(track.streamUrl) ?: return null
-        val quality = settings.streamingQuality.value
-        val needsTranscode = quality != StreamingQuality.Original || !AudioFormat.isPlayableNatively(track.mimetype)
-        if (!needsTranscode) return url
-        val preset = if (quality != StreamingQuality.Original) quality.raw else StreamingQuality.DefaultAdts.raw
+        val preset = TranscodePreset.forStreaming(settings.streamingQuality.value, track.mimetype) ?: return url
         return url.newBuilder().addQueryParameter("transcode", "1").addQueryParameter("preset", preset).build()
     }
 

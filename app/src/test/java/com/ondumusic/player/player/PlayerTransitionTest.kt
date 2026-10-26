@@ -394,14 +394,14 @@ class PlayerTransitionTest {
     fun aFormatThatDoesNotPlayHereIsTranscoded() = runTest {
         val url = urlPlayer().streamUrl(makeTrack(mimetype = "audio/aiff", streamUrl = "/s/1"))!!
         assertEquals("1", url.queryParameter("transcode"))
-        assertEquals("default_adts", url.queryParameter("preset"))
+        assertEquals("default_ogg", url.queryParameter("preset"))
     }
 
     @Test
     fun aLowerStreamingQualityTranscodesWithItsPreset() = runTest {
-        val url = urlPlayer(StreamingQuality.MobileAdts).streamUrl(makeTrack(mimetype = "audio/flac", streamUrl = "/s/1?x=1"))!!
+        val url = urlPlayer(StreamingQuality.Mobile).streamUrl(makeTrack(mimetype = "audio/flac", streamUrl = "/s/1?x=1"))!!
         assertEquals("1", url.queryParameter("x"))
         assertEquals("1", url.queryParameter("transcode"))
-        assertEquals("mobile_adts", url.queryParameter("preset"))
+        assertEquals("mobile_ogg", url.queryParameter("preset"))
     }
 }

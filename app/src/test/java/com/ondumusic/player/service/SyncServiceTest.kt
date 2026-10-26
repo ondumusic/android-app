@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.ondumusic.player.R
 import com.ondumusic.player.api.ApiClient
+import com.ondumusic.player.api.SUPPORTED_API_VERSION
 import com.ondumusic.player.data.LibraryDatabase
 import com.ondumusic.player.data.MusicLibrary
 import com.ondumusic.player.model.ServerCompatibility
@@ -43,7 +44,7 @@ class SyncServiceTest {
 
     /** Sync pages served in order, keyed by the cursor the client sends. */
     private val pages = mutableMapOf<String?, String>()
-    private var info = """{"version": "1.0.0", "apiVersion": 1}"""
+    private var info = """{"version": "1.0.0", "apiVersion": $SUPPORTED_API_VERSION}"""
     private var syncStatus = 200
 
     private val artistId = "11111111-1111-1111-1111-111111111111"
@@ -215,7 +216,7 @@ class SyncServiceTest {
 
     @Test
     fun checksCompatibilityOnce() = runTest {
-        info = """{"version": "2.0.0", "apiVersion": 2}"""
+        info = """{"version": "2.0.0", "apiVersion": ${SUPPORTED_API_VERSION + 1}}"""
         pages[null] = page("c1", complete = true)
         pages["c1"] = page("c2", complete = true)
         val sync = service()

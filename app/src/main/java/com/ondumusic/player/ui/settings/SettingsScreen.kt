@@ -339,14 +339,14 @@ private fun QualitySection(settings: SettingsStore) {
 
 private fun StreamingQuality.labelRes() = when (this) {
     StreamingQuality.Original -> R.string.quality_original
-    StreamingQuality.DefaultAdts -> R.string.quality_default
-    StreamingQuality.MobileAdts -> R.string.quality_mobile
+    StreamingQuality.High -> R.string.quality_high
+    StreamingQuality.Mobile -> R.string.quality_mobile
 }
 
 private fun DownloadQuality.labelRes() = when (this) {
     DownloadQuality.Original -> R.string.quality_original
-    DownloadQuality.DefaultAac -> R.string.quality_default
-    DownloadQuality.MobileAac -> R.string.quality_mobile
+    DownloadQuality.High -> R.string.quality_high
+    DownloadQuality.Mobile -> R.string.quality_mobile
 }
 
 @Composable

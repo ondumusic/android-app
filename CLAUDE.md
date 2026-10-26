@@ -16,7 +16,7 @@ matches iOS; visuals, navigation idioms and controls follow Android conventions.
   startup, like UserDefaults); the session token encrypted with an Android Keystore key
 - Media3 ExoPlayer + `MediaSessionService` for playback, notification and remote controls
 - WorkManager for downloads
-- OkHttp + kotlinx.serialization; okhttp-sse for the transcode prepare stream
+- OkHttp + kotlinx.serialization
 - Coil for artwork
 
 No Google Play Services dependency — the app must run on de-Googled devices.

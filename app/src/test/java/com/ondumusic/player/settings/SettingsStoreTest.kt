@@ -46,13 +46,13 @@ class SettingsStoreTest {
         SettingsStore(prefs).apply {
             volume.value = 0.4f
             repeatMode.value = RepeatMode.All
-            downloadQuality.value = DownloadQuality.MobileAac
+            downloadQuality.value = DownloadQuality.Mobile
             accentColor.value = AccentColor.Teal
         }
         val reloaded = SettingsStore(prefs)
         assertEquals(0.4f, reloaded.volume.value)
         assertEquals(RepeatMode.All, reloaded.repeatMode.value)
-        assertEquals(DownloadQuality.MobileAac, reloaded.downloadQuality.value)
+        assertEquals(DownloadQuality.Mobile, reloaded.downloadQuality.value)
         assertEquals(AccentColor.Teal, reloaded.accentColor.value)
     }
 

@@ -8,7 +8,7 @@ import java.util.UUID
 
 
 /** The API generation this build is written against. Any difference means one side can't talk to the other. */
-const val SUPPORTED_API_VERSION = 1
+const val SUPPORTED_API_VERSION = 2
 
 @Serializable
 data class ServerInfo(val version: String, val apiVersion: Int)
