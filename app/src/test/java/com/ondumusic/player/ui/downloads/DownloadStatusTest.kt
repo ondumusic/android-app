@@ -77,6 +77,15 @@ class DownloadStatusTest {
     }
 
     @Test
+    fun notificationPermissionAskedOnceOnAndroid13AndLater() {
+        assertTrue(shouldRequestNotificationPermission(33, granted = false, alreadyAsked = false))
+        assertFalse(shouldRequestNotificationPermission(33, granted = false, alreadyAsked = true))
+        assertFalse(shouldRequestNotificationPermission(33, granted = true, alreadyAsked = false))
+        // Granted at install before 13.
+        assertFalse(shouldRequestNotificationPermission(32, granted = false, alreadyAsked = false))
+    }
+
+    @Test
     fun albumFractionCountsPartialSongsOfThatAlbumOnly() {
         val mine = active()
         val other = active(albumId = UUID.randomUUID())

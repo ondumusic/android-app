@@ -92,7 +92,7 @@ fun DownloadsScreen() {
         confirmLabel = stringResource(R.string.downloads_download_all),
         dismissLabel = stringResource(R.string.cancel),
         destructive = false,
-        onConfirm = { ui.perform { downloadAll() } },
+        onConfirm = { ui.start { downloadAll() } },
     )
     val confirmRemoveAll = Confirmation(
         title = stringResource(R.string.downloads_remove_all_title),

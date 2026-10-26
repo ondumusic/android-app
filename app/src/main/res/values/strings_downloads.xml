@@ -72,4 +72,7 @@
     <string name="filter">Filter</string>
     <string name="no_downloaded_artists">No downloaded artists</string>
     <string name="download_remove_playlist_message">Remove the downloaded songs of “%1$s” from this device? Songs added to it later won’t download any more.</string>
+    <string name="download_notifications_title">Show download progress?</string>
+    <string name="download_notifications_message">Ondu can show a notification while songs download, so you can follow along outside the app. Downloads continue either way.</string>
+    <string name="download_notifications_allow">Allow notifications</string>
 </resources>

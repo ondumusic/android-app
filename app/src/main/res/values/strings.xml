@@ -46,6 +46,7 @@
     <string name="login_hide_password">Hide password</string>
     <string name="login_sign_in">Sign in</string>
     <string name="login_no_server">Don’t have a server?</string>
+    <string name="not_now">Not now</string>
     <string name="login_https_required">Your server must use https. Sign-in details and your music would otherwise travel unencrypted.</string>
 
     <!-- Initial sync -->

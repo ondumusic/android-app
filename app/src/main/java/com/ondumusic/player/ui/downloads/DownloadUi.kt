@@ -1,5 +1,11 @@
 package com.ondumusic.player.ui.downloads
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -12,6 +18,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.core.content.ContextCompat
+import androidx.core.content.edit
+import com.ondumusic.player.R
 import com.ondumusic.player.service.downloads.DownloadService
 import com.ondumusic.player.ui.LocalContainer
 import kotlinx.coroutines.CoroutineScope
@@ -35,10 +46,17 @@ class Confirmation(
 class DownloadUi internal constructor(
     private val downloads: DownloadService,
     private val scope: CoroutineScope,
+    private val beforeFirstDownload: () -> Unit,
 ) {
     internal var confirmation by mutableStateOf<Confirmation?>(null)
 
-    /** On the app's scope, since the screen that asked may be gone before it finishes. */
+    /** Every user-started download goes through here, so the first one can ask for the notification permission. */
+    fun start(action: suspend DownloadService.() -> Unit) {
+        beforeFirstDownload()
+        perform(action)
+    }
+
+    /** For everything else: on the app's scope, since the screen that asked may be gone before it finishes. */
     fun perform(action: suspend DownloadService.() -> Unit) {
         scope.launch { downloads.action() }
     }
@@ -53,11 +71,39 @@ val LocalDownloadUi = staticCompositionLocalOf<DownloadUi> { error("No DownloadU
 @Composable
 fun ProvideDownloadUi(content: @Composable () -> Unit) {
     val container = LocalContainer.current
-    // No notification permission is asked for: downloads run at full speed in the foreground
-    // either way, and Android's bare prompt explained nothing. Without it the progress
-    // notification is hidden; it shows if notifications are turned on in system settings.
-    val ui = remember(container) { DownloadUi(container.downloads, container.scope) }
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences(PREFS, Context.MODE_PRIVATE) }
+    // Nothing to do with the answer: downloads run either way, only the notification differs.
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    var explainNotifications by remember { mutableStateOf(false) }
+    val ui = remember(container) {
+        DownloadUi(container.downloads, container.scope) {
+            val granted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            if (shouldRequestNotificationPermission(Build.VERSION.SDK_INT, granted, prefs.getBoolean(KEY_ASKED, false))) {
+                prefs.edit { putBoolean(KEY_ASKED, true) }
+                explainNotifications = true
+            }
+        }
+    }
     CompositionLocalProvider(LocalDownloadUi provides ui) { content() }
+
+    // Android's own prompt says nothing about why, so this says it first. The download has
+    // already started behind it.
+    if (explainNotifications) {
+        AlertDialog(
+            onDismissRequest = { explainNotifications = false },
+            title = { Text(stringResource(R.string.download_notifications_title)) },
+            text = { Text(stringResource(R.string.download_notifications_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    explainNotifications = false
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }) { Text(stringResource(R.string.download_notifications_allow)) }
+            },
+            dismissButton = { TextButton(onClick = { explainNotifications = false }) { Text(stringResource(R.string.not_now)) } },
+        )
+    }
 
     ui.confirmation?.let { c ->
         AlertDialog(
@@ -74,3 +120,5 @@ fun ProvideDownloadUi(content: @Composable () -> Unit) {
     }
 }
 
+private const val PREFS = "downloads_ui"
+private const val KEY_ASKED = "askedNotificationPermission"

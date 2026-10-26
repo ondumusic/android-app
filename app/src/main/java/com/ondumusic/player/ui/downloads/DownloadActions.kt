@@ -42,7 +42,7 @@ fun trackDownloadActions(track: Track): List<Action> {
         )
         TrackDownloadStatus.Queued -> listOf(cancel)
         TrackDownloadStatus.NotDownloaded -> listOf(
-            Action(stringResource(R.string.download_action), Icons.Outlined.Download) { ui.perform { download(track) } },
+            Action(stringResource(R.string.download_action), Icons.Outlined.Download) { ui.start { download(track) } },
         )
     }
 }
@@ -57,7 +57,7 @@ fun albumDownloadActions(album: Album): List<Action> {
     val confirmCancel = cancelAlbumConfirmation(album)
     val confirmRemove = removeConfirmation(album.name, R.string.download_remove_album_message)
     return listOfNotNull(
-        Action(stringResource(R.string.download_action), Icons.Outlined.Download) { ui.perform { downloadAlbum(album.id) } }
+        Action(stringResource(R.string.download_action), Icons.Outlined.Download) { ui.start { downloadAlbum(album.id) } }
             .takeIf { actions.download },
         Action(stringResource(R.string.download_cancel), Icons.Outlined.Cancel, destructive = true) { ui.confirm(confirmCancel) }
             .takeIf { actions.cancel },
@@ -76,7 +76,7 @@ fun artistDownloadActions(artist: Artist): List<Action> {
     val actions = collectionDownloadActions(count ?: return emptyList(), isDownloading = false)
     val confirmRemove = removeConfirmation(artist.name, R.string.download_remove_artist_message)
     return listOfNotNull(
-        Action(stringResource(R.string.download_action), Icons.Outlined.Download) { ui.perform { downloadArtist(artist.id) } }
+        Action(stringResource(R.string.download_action), Icons.Outlined.Download) { ui.start { downloadArtist(artist.id) } }
             .takeIf { actions.download },
         Action(stringResource(R.string.download_remove), Icons.Outlined.Delete, destructive = true) {
             ui.confirm(confirmRemove { ui.perform { removeArtist(artist.id) } })

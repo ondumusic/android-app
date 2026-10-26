@@ -2,6 +2,7 @@ package com.ondumusic.player.service.downloads
 
 import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.util.Log
 import androidx.core.app.NotificationChannelCompat
@@ -16,8 +17,10 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.ondumusic.player.BuildConfig
+import com.ondumusic.player.MainActivity
 import com.ondumusic.player.OnduApplication
 import com.ondumusic.player.R
+import com.ondumusic.player.ui.navigation.LaunchAction
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.combine
@@ -76,14 +79,17 @@ class DownloadWorker(context: Context, params: WorkerParameters) : CoroutineWork
         val remaining = state.transferringCount + state.queued.size
         val current = state.active.firstOrNull { !it.isPaused }
         val fraction = current?.let { progress[it.trackId] }
-        val openApp = applicationContext.packageManager.getLaunchIntentForPackage(applicationContext.packageName)
-            ?.let { PendingIntent.getActivity(applicationContext, 0, it, PendingIntent.FLAG_IMMUTABLE) }
+        // The same action as the Downloads shortcut, so the app opens on the list of what's downloading.
+        val openDownloads = Intent(applicationContext, MainActivity::class.java)
+            .setAction(LaunchAction.Downloads.intentAction)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            .let { PendingIntent.getActivity(applicationContext, 0, it, PendingIntent.FLAG_IMMUTABLE) }
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setContentTitle(applicationContext.resources.getQuantityString(R.plurals.downloads_notification_title, remaining, remaining))
             .setContentText(current?.let { "${it.trackName} — ${it.artistName}" })
             .setProgress(100, ((fraction ?: 0f) * 100).toInt(), fraction == null)
-            .setContentIntent(openApp)
+            .setContentIntent(openDownloads)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setSilent(true)

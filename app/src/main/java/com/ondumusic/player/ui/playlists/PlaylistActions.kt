@@ -167,7 +167,7 @@ fun playlistDownloadActions(playlist: Playlist): List<Action> {
     val downloadUi = LocalDownloadUi.current
     if (!playlist.autoDownload) {
         return listOf(Action(stringResource(R.string.download_action), Icons.Outlined.Download) {
-            downloadUi.perform { container.playlists.enableAutoDownload(playlist.id) }
+            downloadUi.start { container.playlists.enableAutoDownload(playlist.id) }
         })
     }
     val tracks by remember(playlist.id) { container.library.observeTracksForPlaylist(playlist.id) }.collectAsStateWithLifecycle(emptyList())

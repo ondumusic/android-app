@@ -1,5 +1,6 @@
 package com.ondumusic.player.ui.downloads
 
+import android.os.Build
 import com.ondumusic.player.data.DownloadCount
 import com.ondumusic.player.service.downloads.DownloadPausedReason
 import com.ondumusic.player.service.downloads.DownloadsState
@@ -34,6 +35,13 @@ fun collectionDownloadActions(count: DownloadCount, isDownloading: Boolean) = Co
     cancel = isDownloading,
     remove = count.isAny,
 )
+
+/**
+ * Asked once, when the first download starts, so the progress notification can show.
+ * Downloads run without it, so a refusal is final rather than something to ask again about.
+ */
+fun shouldRequestNotificationPermission(sdkInt: Int, granted: Boolean, alreadyAsked: Boolean): Boolean =
+    sdkInt >= Build.VERSION_CODES.TIRAMISU && !granted && !alreadyAsked
 
 /** How far an album's download has got, counting part-done songs too, so the ring moves between songs. */
 fun albumDownloadFraction(count: DownloadCount, state: DownloadsState, progress: Map<UUID, Float>, albumId: UUID): Float {
