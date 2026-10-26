@@ -37,6 +37,9 @@
     <string name="settings_clear_cache_message">This will remove %1$s of cached audio. Tracks will be re-streamed on next play.</string>
     <string name="settings_cache_footer">Recently played tracks are cached locally to avoid re-streaming. Set a limit or choose Unlimited.</string>
 
+    <string name="settings_artwork_cache">Artwork cache</string>
+    <string name="settings_artwork_cache_footer">Album covers and artist photos, kept so browsing is instant and works offline. Cleared artwork downloads again as you browse.</string>
+
     <string name="settings_quality">Quality</string>
     <string name="settings_streaming_quality">Streaming quality</string>
     <string name="settings_download_quality">Download quality</string>

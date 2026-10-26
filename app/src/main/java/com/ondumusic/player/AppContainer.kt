@@ -110,6 +110,16 @@ class AppContainer(context: Context) {
     /** Bytes of audio cached from streaming, and how many tracks that covers. */
     fun playbackCacheUsage(): Pair<Long, Int> = playbackCache.cacheSpace to playbackCache.keys.size
 
+    /** The first read opens the cache's journal, so it stays off the main thread. */
+    suspend fun artworkCacheSize(): Long = withContext(Dispatchers.IO) { SingletonImageLoader.get(appContext).diskCache?.size ?: 0 }
+
+    /** Whatever's cleared downloads again as it comes on screen. */
+    suspend fun clearArtworkCache() {
+        val images = SingletonImageLoader.get(appContext)
+        images.memoryCache?.clear()
+        withContext(Dispatchers.IO) { images.diskCache?.clear() }
+    }
+
     fun clearPlaybackCache() {
         playbackCache.keys.toList().forEach(playbackCache::removeResource)
     }

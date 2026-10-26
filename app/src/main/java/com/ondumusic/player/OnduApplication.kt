@@ -28,10 +28,18 @@ class OnduApplication : Application(), SingletonImageLoader.Factory {
     override fun newImageLoader(context: PlatformContext): ImageLoader =
         ImageLoader.Builder(context)
             .components { add(OkHttpNetworkFetcherFactory(callFactory = { container.http })) }
-            .diskCache { DiskCache.Builder().directory(cacheDir.resolve("artwork")).maxSizeBytes(512L * 1024 * 1024).build() }
+            .diskCache { DiskCache.Builder().directory(cacheDir.resolve("artwork")).maxSizeBytes(ARTWORK_CACHE_BYTES).build() }
             .transitionFactory(NetworkCrossfade)
             .build()
 }
+
+/**
+ * Room for a whole library's artwork, so the preload after a sync isn't evicting covers as
+ * fast as it fetches them, and browsing offline (downloaded albums included) shows them. A
+ * cover at the size Ondu uses is 50–120 KB, so this holds ten thousand albums or so; the
+ * space is only taken as artwork arrives.
+ */
+private const val ARTWORK_CACHE_BYTES = 1024L * 1024 * 1024
 
 /**
  * Fades in only a cover that had to be downloaded. One already on the device appears at

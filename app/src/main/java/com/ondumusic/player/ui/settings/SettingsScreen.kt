@@ -40,6 +40,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,6 +83,7 @@ fun SettingsScreen() {
             item { PlaybackSection(settings) }
             item { AppearanceSection(settings) }
             item { CacheSection() }
+            item { ArtworkCacheSection() }
             item { QualitySection(settings) }
             item { DownloadsSection(settings) }
             item { LibrarySection() }
@@ -298,6 +300,28 @@ private fun CacheSection() {
             dismissButton = { TextButton(onClick = { confirmClear = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
+}
+
+@Composable
+private fun ArtworkCacheSection() {
+    val container = LocalContainer.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var size by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(Unit) { size = container.artworkCacheSize() }
+
+    SectionHeader(stringResource(R.string.settings_artwork_cache))
+    ValueRow(stringResource(R.string.settings_cache_size), size?.let { Formatter.formatShortFileSize(context, it) } ?: "…")
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.settings_clear_cache), color = MaterialTheme.colorScheme.error) },
+        modifier = Modifier.clickable(enabled = (size ?: 0) > 0) {
+            scope.launch {
+                container.clearArtworkCache()
+                size = container.artworkCacheSize()
+            }
+        },
+    )
+    Footer(stringResource(R.string.settings_artwork_cache_footer))
 }
 
 @Composable
