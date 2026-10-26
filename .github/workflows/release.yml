@@ -116,12 +116,21 @@ jobs:
             --notes-file "$RUNNER_TEMP/notes.md" \
             dist/*
 
+      # Unzipped, so the run's artifacts list the file by its own name, .apk included, and it
+      # downloads ready to install. The checksum goes alongside the same way.
       - name: Attach the test build
         if: env.IS_RELEASE != 'true'
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ env.APK_NAME }}
-          path: dist/
+          path: dist/${{ env.APK_NAME }}.apk
+          archive: false
+
+      - name: Attach its checksum
+        if: env.IS_RELEASE != 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          path: dist/${{ env.APK_NAME }}.apk.sha256
+          archive: false
 
       # Kept with the run rather than on the release: it maps obfuscated names back to the
       # source, which the release's readers don't need. Without it, crash traces from this

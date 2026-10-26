@@ -156,8 +156,8 @@ Once a release is published and shared, never move its tag. Make a new version i
 To try a build before releasing it, or to hand a tester something in between, run the same
 workflow by hand: **Actions → Release → Run workflow**, then pick the branch. It runs the
 tests and builds an APK signed with the release key, but needs no tag or changelog entry and
-publishes nothing. The APK is attached to the run as `ondu-0.1.0-a1b2c3d` (version, then the
-commit), on the run's summary page.
+publishes nothing. The APK is attached to the run as `ondu-0.1.0-a1b2c3d.apk` (version, then
+the commit), on the run's summary page, next to its `.sha256` checksum.
 
 Test builds can share a version. Android installs a build over another with the same
 `versionCode`, only never over a higher one. So several `0.1.0` test builds can go to a tester
