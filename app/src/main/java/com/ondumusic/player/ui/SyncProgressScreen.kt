@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -34,6 +33,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ondumusic.player.R
 import com.ondumusic.player.auth.AuthService
 import com.ondumusic.player.service.SyncService
+import com.ondumusic.player.ui.components.LoadingWave
 import kotlinx.coroutines.launch
 
 @Composable
@@ -69,7 +69,7 @@ fun SyncProgressScreen(sync: SyncService, auth: AuthService) {
                     Button(onClick = { scope.launch { sync.sync() } }) { Text(stringResource(R.string.retry)) }
                 }
             } else {
-                CircularProgressIndicator(Modifier.size(48.dp))
+                LoadingWave()
                 Spacer(Modifier.height(24.dp))
                 Text(stringResource(R.string.sync_getting_ready), style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(4.dp))
