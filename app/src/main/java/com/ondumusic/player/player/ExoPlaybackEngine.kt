@@ -118,7 +118,7 @@ class ExoPlaybackEngine(
      */
     private fun buildPlayer(ownsFocus: Boolean): ExoPlayer =
         ExoPlayer.Builder(context)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
+            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory, OpusGaplessExtractorsFactory()))
             .setAudioAttributes(musicAttributes, ownsFocus)
             .setHandleAudioBecomingNoisy(ownsFocus)
             .setWakeMode(C.WAKE_MODE_NETWORK)
