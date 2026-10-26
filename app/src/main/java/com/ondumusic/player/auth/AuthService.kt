@@ -27,6 +27,8 @@ class AuthService(
     private val tokens: TokenStore,
     private val http: OkHttpClient,
     private val scope: CoroutineScope,
+    /** Whether reaching this server needs local network access that Ondu doesn't have. */
+    private val localNetworkBlocked: suspend (HttpUrl) -> Boolean = { false },
 ) {
     private val _api = MutableStateFlow<ApiClient?>(null)
     /** Non-null while signed in, including offline: a stored session is used until the server rejects it. */
@@ -97,7 +99,7 @@ class AuthService(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            _error.value = ErrorMessages.login(e)
+            _error.value = ErrorMessages.login(e, ErrorMessages.isUnreachable(e) && localNetworkBlocked(baseUrl))
         } finally {
             _isLoading.value = false
         }
@@ -124,7 +126,7 @@ class AuthService(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            _error.value = ErrorMessages.login(e)
+            _error.value = ErrorMessages.login(e, ErrorMessages.isUnreachable(e) && localNetworkBlocked(baseUrl))
         } finally {
             _isLoading.value = false
         }

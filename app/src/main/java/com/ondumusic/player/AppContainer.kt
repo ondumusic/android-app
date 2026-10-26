@@ -14,6 +14,7 @@ import coil3.request.ImageRequest
 import com.ondumusic.player.api.ApiClient
 import com.ondumusic.player.auth.AuthService
 import com.ondumusic.player.auth.KeystoreTokenStore
+import com.ondumusic.player.auth.LocalNetwork
 import com.ondumusic.player.data.LibraryDatabase
 import com.ondumusic.player.data.MusicLibrary
 import com.ondumusic.player.data.SearchHistory
@@ -42,6 +43,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import java.io.File
@@ -73,7 +75,8 @@ class AppContainer(context: Context) {
 
     val settings = SettingsStore(context.getSharedPreferences("settings", Context.MODE_PRIVATE))
     val searchHistory = SearchHistory(context.getSharedPreferences("search", Context.MODE_PRIVATE))
-    val auth = AuthService(authPrefs, KeystoreTokenStore(context), http, scope)
+    private val localNetworkBlocked: suspend (HttpUrl) -> Boolean = { LocalNetwork.needsPermission(appContext, it) }
+    val auth = AuthService(authPrefs, KeystoreTokenStore(context), http, scope, localNetworkBlocked)
     val library = MusicLibrary(LibraryDatabase.create(context) { SyncService.clearState(syncPrefs) }, context.filesDir)
     val network = NetworkMonitor(context)
 
@@ -85,6 +88,7 @@ class AppContainer(context: Context) {
         DownloadService.Hooks(
             onUnauthorized = auth::markSessionExpired,
             onStarted = { DownloadWorker.enqueue(appContext) },
+            localNetworkBlocked = localNetworkBlocked,
         ),
     )
 
@@ -217,6 +221,7 @@ class AppContainer(context: Context) {
                 downloadTracks = { ids -> scope.launch { downloads.downloadTracks(ids) } },
                 reconcileDownloads = { initialSync -> library.reconcileDownloadedFiles(deleteOrphans = initialSync) },
                 prefetchArtwork = artworkPrefetcher::prefetch,
+                localNetworkBlocked = localNetworkBlocked,
             ),
         )
         return Session(api, sync)

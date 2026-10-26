@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import okhttp3.HttpUrl
 import java.time.Duration
 import java.time.Instant
 import java.util.UUID
@@ -53,6 +54,7 @@ class SyncService(
          */
         val reconcileDownloads: suspend (initialSync: Boolean) -> Unit = {},
         val prefetchArtwork: (List<String>) -> Unit = {},
+        val localNetworkBlocked: suspend (HttpUrl) -> Boolean = { false },
     )
 
     data class Progress(val artistCount: Int = 0, val albumCount: Int = 0, val trackCount: Int = 0)
@@ -215,7 +217,7 @@ class SyncService(
             hooks.onUnauthorized()
         } catch (e: Exception) {
             if (BuildConfig.DEBUG) Log.d(TAG, "sync failed", e)
-            _error.value = ErrorMessages.sync(e)
+            _error.value = ErrorMessages.sync(e, ErrorMessages.isUnreachable(e) && hooks.localNetworkBlocked(api.baseUrl))
         } finally {
             _isSyncing.value = false
             _progress.value = null

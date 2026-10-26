@@ -96,6 +96,7 @@ class DownloadService(
         val onUnauthorized: () -> Unit = {},
         /** A download started; keeps the process alive while there's work. */
         val onStarted: () -> Unit = {},
+        val localNetworkBlocked: suspend (HttpUrl) -> Boolean = { false },
     )
 
     class Timing(
@@ -547,7 +548,8 @@ class DownloadService(
             e.outcome
         } catch (e: Exception) {
             if (BuildConfig.DEBUG) Log.d(TAG, "download failed for ${track.name}", e)
-            Outcome.Failed(ErrorMessages.download(e))
+            val blocked = ErrorMessages.isUnreachable(e) && api.value?.baseUrl?.let { hooks.localNetworkBlocked(it) } == true
+            Outcome.Failed(ErrorMessages.download(e, blocked))
         }
         val self = currentCoroutineContext().job
         mutex.withLock {
