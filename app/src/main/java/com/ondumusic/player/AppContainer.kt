@@ -24,6 +24,7 @@ import com.ondumusic.player.player.PlaybackCacheEvictor
 import com.ondumusic.player.player.PlaybackStateStore
 import com.ondumusic.player.player.PlayerService
 import com.ondumusic.player.player.SessionPlayer
+import com.ondumusic.player.service.ArtworkPreload
 import com.ondumusic.player.service.ArtworkPrefetcher
 import com.ondumusic.player.service.NetworkMonitor
 import com.ondumusic.player.ui.navigation.LaunchActions
@@ -41,6 +42,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl
@@ -154,11 +156,19 @@ class AppContainer(context: Context) {
         SingletonImageLoader.get(appContext).execute(request)
     }
 
+    private val artworkPreload = ArtworkPreload(artworkPrefetcher::prefetch) {
+        ArtworkPreload.Conditions(isMetered = network.isMetered.value, isDataSaver = network.isDataSaverOn)
+    }
+
     private val _session = MutableStateFlow<Session?>(null)
     val session: StateFlow<Session?> = _session.asStateFlow()
 
     init {
         scope.launch { settings.playbackCacheLimit.flow.collect { cacheEvictor.limitBytes = it } }
+        scope.launch {
+            combine(network.isOnline, network.isMetered) { online, metered -> online && !metered }
+                .collect { unmetered -> if (unmetered) artworkPreload.preloadDeferred() }
+        }
         scope.launch {
             var hadSession = false
             auth.api.collect { api ->
@@ -181,6 +191,7 @@ class AppContainer(context: Context) {
                     // Signing out discards this account's data on purpose; a fresh launch with
                     // nobody signed in has nothing to discard.
                     if (hadSession) {
+                        artworkPreload.clear()
                         artworkPrefetcher.clear()
                         player.stopAndClear()
                         playlistEdits.discardAll()
@@ -230,7 +241,7 @@ class AppContainer(context: Context) {
                 onUnauthorized = auth::markSessionExpired,
                 downloadTracks = { ids -> scope.launch { downloads.downloadTracks(ids) } },
                 reconcileDownloads = { initialSync -> library.reconcileDownloadedFiles(deleteOrphans = initialSync) },
-                prefetchArtwork = artworkPrefetcher::prefetch,
+                prefetchArtwork = artworkPreload::preload,
                 localNetworkBlocked = localNetworkBlocked,
             ),
         )

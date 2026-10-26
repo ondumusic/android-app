@@ -37,6 +37,10 @@ class NetworkMonitor(context: Context) {
         })
     }
 
+    /** Data Saver only restricts metered networks, so it counts only on one. */
+    val isDataSaverOn: Boolean
+        get() = _isMetered.value && connectivity.restrictBackgroundStatus == ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED
+
     private fun currentlyOnline(): Boolean =
         connectivity.getNetworkCapabilities(connectivity.activeNetwork)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
 }
