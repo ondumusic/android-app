@@ -222,6 +222,9 @@ class AppContainer(context: Context) {
         return Session(api, sync)
     }
 
+    /** After local network access is allowed: whatever timed out reaching the server tries again. */
+    fun reconnect() = onForeground()
+
     private fun onForeground() {
         val session = _session.value
         scope.launch {

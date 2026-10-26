@@ -47,6 +47,15 @@
     <string name="login_sign_in">Sign in</string>
     <string name="login_no_server">Don’t have a server?</string>
     <string name="not_now">Not now</string>
+    <string name="close">Close</string>
+    <string name="open_settings">Open settings</string>
+
+    <!-- Local network access (Android 17 and later) -->
+    <string name="local_network_title">Allow local network access?</string>
+    <string name="local_network_message">Your server is on your local network. Android asks before an app connects to devices there, so Ondu needs your permission to reach it. Servers reached over the internet don’t need this.</string>
+    <string name="local_network_continue">Continue</string>
+    <string name="local_network_refused_title">Can’t reach your server</string>
+    <string name="local_network_refused_message">Your server is on your local network, and Ondu isn’t allowed to connect there. Allow “Nearby devices” in Ondu’s permissions to reach it.</string>
     <string name="login_https_required">Your server must use https. Sign-in details and your music would otherwise travel unencrypted.</string>
 
     <!-- Initial sync -->

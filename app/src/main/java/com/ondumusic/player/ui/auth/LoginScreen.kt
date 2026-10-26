@@ -1,5 +1,7 @@
 package com.ondumusic.player.ui.auth
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,6 +52,7 @@ import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentType
@@ -62,6 +65,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.ondumusic.player.R
 import com.ondumusic.player.auth.AuthService
+import com.ondumusic.player.auth.LocalNetwork
 import com.ondumusic.player.auth.ServerAddress
 import com.ondumusic.player.ui.components.AppIcon
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -75,6 +79,7 @@ fun LoginScreen(auth: AuthService) {
     val error by auth.error.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
 
     var server by rememberSaveable { mutableStateOf(auth.storedServerUrl?.let(ServerAddress::display).orEmpty()) }
     var username by rememberSaveable { mutableStateOf(auth.storedUsername.orEmpty()) }
@@ -84,16 +89,34 @@ fun LoginScreen(auth: AuthService) {
     val resolved = remember(server) { ServerAddress.resolve(server) }
     // Explains a rejected address, rather than leaving Sign In disabled with no indication why.
     val serverProblem = server.trim().takeIf { it.isNotEmpty() && resolved == null && it.lowercase().startsWith("http://") }
-    val canSubmit = resolved != null && username.isNotEmpty() && password.isNotEmpty() && !isLoading
+    var checkingAddress by remember { mutableStateOf(false) }
+    val busy = isLoading || checkingAddress
+    val canSubmit = resolved != null && username.isNotEmpty() && password.isNotEmpty() && !busy
+    var explainLocalNetwork by remember { mutableStateOf(false) }
+    var localNetworkRefused by remember { mutableStateOf(false) }
 
     val serverFocus = remember { FocusRequester() }
     val usernameFocus = remember { FocusRequester() }
     val passwordFocus = remember { FocusRequester() }
 
+    fun signIn() {
+        val url = resolved ?: return
+        scope.launch { auth.login(url, username.trim(), password) }
+    }
+
+    val localNetworkPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) signIn() else localNetworkRefused = true
+    }
+
     fun submit() {
         val url = resolved ?: return
         if (!canSubmit) return
-        scope.launch { auth.login(url, username.trim(), password) }
+        localNetworkRefused = false
+        scope.launch {
+            checkingAddress = true
+            val needsPermission = try { LocalNetwork.needsPermission(context, url) } finally { checkingAddress = false }
+            if (needsPermission) explainLocalNetwork = true else signIn()
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -182,12 +205,32 @@ fun LoginScreen(auth: AuthService) {
                     }
                 }
 
+                if (localNetworkRefused) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column(Modifier.padding(start = 12.dp, top = 12.dp, end = 12.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Icon(Icons.Outlined.ErrorOutline, contentDescription = null, modifier = Modifier.size(20.dp))
+                                Text(stringResource(R.string.local_network_refused_message), style = MaterialTheme.typography.bodyMedium)
+                            }
+                            TextButton(onClick = { openAppSettings(context) }, modifier = Modifier.align(Alignment.End)) {
+                                Text(stringResource(R.string.open_settings))
+                            }
+                        }
+                    }
+                }
+
                 Spacer(Modifier.height(8.dp))
                 Button(onClick = ::submit, enabled = canSubmit, modifier = Modifier.fillMaxWidth().height(48.dp)) {
                     // Overlaid rather than swapped, so the button doesn't change size mid-submit.
                     Box(contentAlignment = Alignment.Center) {
-                        Text(stringResource(R.string.login_sign_in), Modifier.alpha(if (isLoading) 0f else 1f))
-                        if (isLoading) {
+                        Text(stringResource(R.string.login_sign_in), Modifier.alpha(if (busy) 0f else 1f))
+                        if (busy) {
                             CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = LocalContentColor.current)
                         }
                     }
@@ -197,5 +240,13 @@ fun LoginScreen(auth: AuthService) {
                 }
             }
         }
+    }
+
+    if (explainLocalNetwork) {
+        LocalNetworkExplanation(
+            onContinue = { explainLocalNetwork = false; localNetworkPermission.launch(LocalNetwork.PERMISSION) },
+            onDismiss = { explainLocalNetwork = false },
+            dismissLabel = stringResource(R.string.cancel),
+        )
     }
 }

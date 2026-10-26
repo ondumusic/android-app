@@ -9,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ondumusic.player.AppContainer
+import com.ondumusic.player.ui.auth.LocalNetworkAccessCheck
 import com.ondumusic.player.ui.auth.LoginScreen
 import com.ondumusic.player.ui.banners.WithAppBanners
 import com.ondumusic.player.ui.downloads.ProvideDownloadUi
@@ -44,5 +45,7 @@ fun OnduApp(container: AppContainer) {
                 }
             }
         }
+        // Syncing needs the server as much as browsing does, so both are covered.
+        current?.let { LocalNetworkAccessCheck(it.api.baseUrl, onGranted = container::reconnect) }
     }
 }
