@@ -54,10 +54,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ondumusic.player.BuildConfig
 import com.ondumusic.player.R
+import com.ondumusic.player.model.TranscodePresetList
+import com.ondumusic.player.model.TranscodeQuality
 import com.ondumusic.player.settings.AccentColor
-import com.ondumusic.player.settings.DownloadQuality
 import com.ondumusic.player.settings.SettingsStore
-import com.ondumusic.player.settings.StreamingQuality
 import com.ondumusic.player.ui.LocalContainer
 import com.ondumusic.player.ui.LocalSession
 import com.ondumusic.player.ui.navigation.LocalNavigator
@@ -328,25 +328,30 @@ private fun ArtworkCacheSection() {
 private fun QualitySection(settings: SettingsStore) {
     val streaming by settings.streamingQuality.flow.collectAsStateWithLifecycle()
     val download by settings.downloadQuality.flow.collectAsStateWithLifecycle()
+    val presets by settings.serverPresets.flow.collectAsStateWithLifecycle()
     SectionHeader(stringResource(R.string.settings_quality))
-    ChoiceRow(stringResource(R.string.settings_streaming_quality), StreamingQuality.entries, streaming,
-        label = { stringResource(it.labelRes()) }, onSelect = { settings.streamingQuality.value = it },
+    ChoiceRow(stringResource(R.string.settings_streaming_quality), presets.qualityOptions(streaming), streaming,
+        label = { presets.label(it) }, onSelect = { settings.streamingQuality.value = it },
         description = stringResource(R.string.settings_streaming_quality_description))
-    ChoiceRow(stringResource(R.string.settings_download_quality), DownloadQuality.entries, download,
-        label = { stringResource(it.labelRes()) }, onSelect = { settings.downloadQuality.value = it },
+    ChoiceRow(stringResource(R.string.settings_download_quality), presets.qualityOptions(download), download,
+        label = { presets.label(it) }, onSelect = { settings.downloadQuality.value = it },
         description = stringResource(R.string.settings_download_quality_description))
 }
 
-private fun StreamingQuality.labelRes() = when (this) {
-    StreamingQuality.Original -> R.string.quality_original
-    StreamingQuality.High -> R.string.quality_high
-    StreamingQuality.Mobile -> R.string.quality_mobile
+/**
+ * A stored id the server no longer lists still gets a row, so the choice shows what is
+ * set rather than nothing; playback uses the server's default meanwhile.
+ */
+private fun TranscodePresetList.qualityOptions(selected: TranscodeQuality): List<TranscodeQuality> {
+    val options = listOf<TranscodeQuality>(TranscodeQuality.Original) + presets.map { TranscodeQuality.Preset(it.id) }
+    return if (selected in options) options else options + selected
 }
 
-private fun DownloadQuality.labelRes() = when (this) {
-    DownloadQuality.Original -> R.string.quality_original
-    DownloadQuality.High -> R.string.quality_high
-    DownloadQuality.Mobile -> R.string.quality_mobile
+@Composable
+private fun TranscodePresetList.label(quality: TranscodeQuality): String = when (quality) {
+    TranscodeQuality.Original -> stringResource(R.string.quality_original)
+    is TranscodeQuality.Preset -> presets.firstOrNull { it.id == quality.id }?.name
+        ?: stringResource(R.string.quality_unavailable, quality.id)
 }
 
 @Composable

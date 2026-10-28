@@ -1,7 +1,8 @@
 package com.ondumusic.player.api
 
-import com.ondumusic.player.BuildConfig
+import android.os.LocaleList
 import android.util.Log
+import com.ondumusic.player.BuildConfig
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.JsonNull
@@ -15,6 +16,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.util.Locale
 import java.util.UUID
 
 /** An authenticated client for one server session. */
@@ -38,6 +40,7 @@ class ApiClient(
             .url(url)
             .header("Authorization", "Bearer $sessionToken")
             .header("Accept", "application/json")
+            .header("Accept-Language", acceptLanguage(LocaleList.getAdjustedDefault().let { list -> List(list.size()) { list[it] } }))
     }
 
     private suspend fun <T> execute(request: Request, deserializer: KSerializer<T>): T {
@@ -150,6 +153,17 @@ class ApiClient(
     }
 
     companion object {
+        /**
+         * The user's languages in order, the way a browser sends them, so wording the server
+         * composes, such as preset names, comes back translated. OkHttp sends none on its
+         * own. Without extensions: Android keeps regional preferences in them
+         * (`nl-NL-u-fw-mon`), which a server matching languages wouldn't recognise.
+         */
+        internal fun acceptLanguage(locales: List<Locale>): String {
+            val tags = locales.map { it.stripExtensions().toLanguageTag() }.distinct().take(10).ifEmpty { listOf("en") }
+            return tags.mapIndexed { index, tag -> if (index == 0) tag else "$tag;q=0.${10 - index}" }.joinToString(", ")
+        }
+
         private const val TAG = "ApiClient"
         private val JSON = "application/json".toMediaType()
 

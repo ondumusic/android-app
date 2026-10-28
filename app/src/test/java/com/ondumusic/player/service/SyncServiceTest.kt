@@ -9,6 +9,7 @@ import com.ondumusic.player.api.SUPPORTED_API_VERSION
 import com.ondumusic.player.data.LibraryDatabase
 import com.ondumusic.player.data.MusicLibrary
 import com.ondumusic.player.model.ServerCompatibility
+import com.ondumusic.player.model.TranscodePresetList
 import com.ondumusic.player.settings.SettingsStore
 import com.ondumusic.player.util.UiText
 import kotlinx.coroutines.flow.first
@@ -214,8 +215,9 @@ class SyncServiceTest {
         assertTrue(sync.notices.value.isEmpty())
     }
 
+    /** The server can be updated while the app is running, so `/info` goes with every sync rather than once per launch. */
     @Test
-    fun checksCompatibilityOnce() = runTest {
+    fun checksTheServerOnEverySync() = runTest {
         info = """{"version": "2.0.0", "apiVersion": ${SUPPORTED_API_VERSION + 1}}"""
         pages[null] = page("c1", complete = true)
         pages["c1"] = page("c2", complete = true)
@@ -226,7 +228,37 @@ class SyncServiceTest {
 
         assertEquals(ServerCompatibility.AppTooOld("2.0.0"), sync.compatibility.value)
         assertEquals("2.0.0", sync.serverVersion.value)
-        assertEquals(3, server.requestCount)
+        assertEquals(4, server.requestCount)
+    }
+
+    @Test
+    fun syncAdoptsTheServersPresets() = runTest {
+        info = """
+            {"version":"2.0.0","apiVersion":$SUPPORTED_API_VERSION,"defaultPreset":"hq","presets":[
+              {"id":"hq","name":"HQ","codec":"opus","container":"ogg",
+               "mimetype":"audio/ogg","extension":"opus","bitrate":256}]}
+        """
+        pages[null] = page("c1", complete = true)
+
+        service().sync()
+
+        assertEquals("hq", settings.serverPresets.value.defaultId)
+        assertEquals(listOf("hq"), settings.serverPresets.value.presets.map { it.id })
+    }
+
+    /**
+     * Moving from a server that lists presets to one that doesn't must not leave the
+     * newer server's ids behind: the older server only knows the built-in ones.
+     */
+    @Test
+    fun anOlderServerResetsToTheBuiltInPresets() = runTest {
+        settings.serverPresets.value = TranscodePresetList(defaultId = "hq", presets = emptyList())
+        info = """{"version": "1.0.0-rc.4", "apiVersion": $SUPPORTED_API_VERSION}"""
+        pages[null] = page("c1", complete = true)
+
+        service().sync()
+
+        assertEquals(TranscodePresetList.builtIn, settings.serverPresets.value)
     }
 
     @Test

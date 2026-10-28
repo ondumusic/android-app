@@ -8,10 +8,12 @@ import com.ondumusic.player.api.ApiClient
 import com.ondumusic.player.api.ApiException
 import com.ondumusic.player.api.ErrorMessages
 import com.ondumusic.player.api.SUPPORTED_API_VERSION
+import com.ondumusic.player.api.ServerInfo
 import com.ondumusic.player.data.MusicLibrary
 import com.ondumusic.player.model.ArtworkSize
 import com.ondumusic.player.model.ServerCompatibility
 import com.ondumusic.player.model.ServerNotice
+import com.ondumusic.player.model.TranscodePresetList
 import com.ondumusic.player.model.covering
 import com.ondumusic.player.model.toNotice
 import com.ondumusic.player.settings.SettingsStore
@@ -87,8 +89,8 @@ class SyncService(
 
     private val _compatibility = MutableStateFlow<ServerCompatibility>(ServerCompatibility.Ok)
     /**
-     * Whether this build and the server agree about the API. Checked once per launch: it
-     * changes when one side is updated, which can't happen while the app is running.
+     * Whether this build and the server agree about the API. Checked off the back of every
+     * sync, since the server can be updated while the app is running.
      */
     val compatibility: StateFlow<ServerCompatibility> = _compatibility.asStateFlow()
 
@@ -100,7 +102,6 @@ class SyncService(
     val serverVersion: StateFlow<String?> = _serverVersion.asStateFlow()
 
     @Volatile private var isSessionExpired = false
-    @Volatile private var hasCheckedCompatibility = false
     @Volatile private var syncRun = 0
 
     private var cursor: String?
@@ -121,12 +122,12 @@ class SyncService(
             return
         }
         if (!running.compareAndSet(false, true)) return
-        // From the start, not from the first page: the compatibility check and the outbox
-        // flush are part of what someone pulling to refresh is waiting on.
+        // From the start, not from the first page: the server check and the outbox flush
+        // are part of what someone pulling to refresh is waiting on.
         _isShowingActivity.value = true
         var synced = false
         try {
-            checkCompatibilityIfNeeded()
+            checkServerInfo()
             hooks.flushOutbox()
             synced = true
             runSync()
@@ -271,8 +272,7 @@ class SyncService(
     }
 
     /** A failure is left alone: a server that can't answer `/info` has bigger problems the sync itself will report. */
-    private suspend fun checkCompatibilityIfNeeded() {
-        if (hasCheckedCompatibility) return
+    private suspend fun checkServerInfo() {
         val info = try {
             api.fetchServerInfo()
         } catch (e: CancellationException) {
@@ -280,9 +280,13 @@ class SyncService(
         } catch (e: Exception) {
             return
         }
-        hasCheckedCompatibility = true
+        applyServerInfo(info)
+    }
+
+    fun applyServerInfo(info: ServerInfo) {
         _compatibility.value = ServerCompatibility.compare(info.apiVersion, info.version, SUPPORTED_API_VERSION)
         _serverVersion.value = info.version
+        settings.serverPresets.value = info.presetList ?: TranscodePresetList.builtIn
     }
 
     /**

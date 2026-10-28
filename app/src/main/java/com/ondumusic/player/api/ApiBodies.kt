@@ -1,6 +1,8 @@
 package com.ondumusic.player.api
 
 import com.ondumusic.player.model.ArtworkVariant
+import com.ondumusic.player.model.TranscodePreset
+import com.ondumusic.player.model.TranscodePresetList
 import com.ondumusic.player.model.User
 import kotlinx.serialization.Serializable
 import java.time.Instant
@@ -11,7 +13,19 @@ import java.util.UUID
 const val SUPPORTED_API_VERSION = 2
 
 @Serializable
-data class ServerInfo(val version: String, val apiVersion: Int)
+data class ServerInfo(
+    val version: String,
+    val apiVersion: Int,
+    /** Absent from servers that predate listing presets. */
+    val defaultPreset: String? = null,
+    val presets: List<TranscodePreset>? = null,
+) {
+    val presetList: TranscodePresetList?
+        get() {
+            if (defaultPreset == null || presets.isNullOrEmpty()) return null
+            return TranscodePresetList(defaultPreset, presets)
+        }
+}
 
 @Serializable
 data class LoginResponse(

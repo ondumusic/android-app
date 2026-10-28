@@ -6,6 +6,9 @@ import com.ondumusic.player.model.AlbumSortOption
 import com.ondumusic.player.model.RepeatMode
 import com.ondumusic.player.model.TrackSort
 import com.ondumusic.player.model.TrackSortColumn
+import com.ondumusic.player.model.TranscodePreset
+import com.ondumusic.player.model.TranscodePresetList
+import com.ondumusic.player.model.TranscodeQuality
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -33,8 +36,9 @@ class SettingsStoreTest {
         assertTrue(s.recordPlays.value)
         assertEquals(RepeatMode.Off, s.repeatMode.value)
         assertEquals(2L * 1024 * 1024 * 1024, s.playbackCacheLimit.value)
-        assertEquals(DownloadQuality.Original, s.downloadQuality.value)
-        assertEquals(StreamingQuality.Original, s.streamingQuality.value)
+        assertEquals(TranscodeQuality.Original, s.downloadQuality.value)
+        assertEquals(TranscodeQuality.Original, s.streamingQuality.value)
+        assertEquals(TranscodePresetList.builtIn, s.serverPresets.value)
         assertTrue(s.artworkTintedPlayer.value)
         assertEquals(AccentColor.Wallpaper, s.accentColor.value)
         assertTrue(s.hapticsEnabled.value)
@@ -46,13 +50,13 @@ class SettingsStoreTest {
         SettingsStore(prefs).apply {
             volume.value = 0.4f
             repeatMode.value = RepeatMode.All
-            downloadQuality.value = DownloadQuality.Mobile
+            downloadQuality.value = TranscodeQuality.Preset("mobile_ogg")
             accentColor.value = AccentColor.Teal
         }
         val reloaded = SettingsStore(prefs)
         assertEquals(0.4f, reloaded.volume.value)
         assertEquals(RepeatMode.All, reloaded.repeatMode.value)
-        assertEquals(DownloadQuality.Mobile, reloaded.downloadQuality.value)
+        assertEquals(TranscodeQuality.Preset("mobile_ogg"), reloaded.downloadQuality.value)
         assertEquals(AccentColor.Teal, reloaded.accentColor.value)
     }
 
@@ -65,10 +69,49 @@ class SettingsStoreTest {
 
     @Test
     fun unknownStoredValuesFallBackToDefaults() {
-        prefs.edit().putString("repeatMode", "sideways").putString("downloadQuality", "lossless_plus").commit()
+        prefs.edit().putString("repeatMode", "sideways").putString("serverPresets", "{not json").commit()
         val s = SettingsStore(prefs)
         assertEquals(RepeatMode.Off, s.repeatMode.value)
-        assertEquals(DownloadQuality.Original, s.downloadQuality.value)
+        assertEquals(TranscodePresetList.builtIn, s.serverPresets.value)
+    }
+
+    /** Earlier builds stored a level and mapped it to a preset themselves; the mapping they used is what those values mean now. */
+    @Test
+    fun legacyQualityLevelsBecomeTheirPresets() {
+        prefs.edit().putString("streamingQuality", "high").putString("downloadQuality", "mobile").commit()
+        val s = SettingsStore(prefs)
+        assertEquals(TranscodeQuality.Preset("default_ogg"), s.streamingQuality.value)
+        assertEquals(TranscodeQuality.Preset("mobile_ogg"), s.downloadQuality.value)
+    }
+
+    /** Kept as stored: whether the server still has it is decided when the preset is resolved. */
+    @Test
+    fun anUnknownPresetIdIsKept() {
+        prefs.edit().putString("downloadQuality", "lossless_plus").commit()
+        assertEquals(TranscodeQuality.Preset("lossless_plus"), SettingsStore(prefs).downloadQuality.value)
+    }
+
+    @Test
+    fun serverPresetsPersist() {
+        val list = TranscodePresetList(
+            defaultId = "hq",
+            presets = listOf(
+                TranscodePreset(
+                    id = "hq", name = "HQ", codec = "opus", container = "ogg", mimetype = "audio/ogg",
+                    fileExtension = "opus", bitrate = 256,
+                ),
+            ),
+        )
+        SettingsStore(prefs).serverPresets.value = list
+        assertEquals(list, SettingsStore(prefs).serverPresets.value)
+    }
+
+    @Test
+    fun qualityResolvesAgainstTheStoredServerList() {
+        val s = SettingsStore(prefs)
+        s.streamingQuality.value = TranscodeQuality.Preset("mobile_ogg")
+        assertEquals("mobile_ogg", s.streamingPreset("audio/flac")?.id)
+        assertNull(s.downloadPreset("audio/flac"))
     }
 
     @Test

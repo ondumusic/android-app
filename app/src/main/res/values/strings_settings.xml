@@ -46,8 +46,8 @@
     <string name="settings_streaming_quality_description">Used when playing from the server. Lower quality saves data on mobile networks.</string>
     <string name="settings_download_quality_description">Applies to new downloads. Songs already downloaded keep their quality.</string>
     <string name="quality_original">Original</string>
-    <string name="quality_high">High</string>
-    <string name="quality_mobile">Mobile</string>
+    <!-- A quality choice whose server preset no longer exists; the argument is the preset's id. -->
+    <string name="quality_unavailable">%1$s (unavailable)</string>
 
     <string name="settings_concurrent_downloads">Concurrent downloads</string>
     <string name="settings_auto_download">Auto-download new tracks</string>

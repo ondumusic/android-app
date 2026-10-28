@@ -15,7 +15,7 @@ import com.ondumusic.player.data.downloadRelativePath
 import com.ondumusic.player.data.downloadedTrackIds
 import com.ondumusic.player.data.markDownloaded
 import com.ondumusic.player.model.Track
-import com.ondumusic.player.settings.DownloadQuality
+import com.ondumusic.player.model.TranscodeQuality
 import com.ondumusic.player.settings.SettingsStore
 import com.ondumusic.player.util.UiText
 import kotlinx.coroutines.CoroutineScope
@@ -702,7 +702,7 @@ class DownloadServiceTest {
     /** An Opus transcode is sized from its first byte, so there is nothing to prepare: the download starts at once. */
     @Test
     fun aLowerQualityDownloadsTheTranscodeDirectly() = runBlocking {
-        settings.downloadQuality.value = DownloadQuality.Mobile
+        settings.downloadQuality.value = TranscodeQuality.Preset("mobile_ogg")
         respond = { audioResponse(audio, "audio/ogg") }
         val service = service()
         val track = seedOne()
@@ -936,7 +936,7 @@ class DownloadServiceTest {
 
     @Test
     fun aRejectedTranscodeDownloadAlsoPauses() = runBlocking {
-        settings.downloadQuality.value = DownloadQuality.Mobile
+        settings.downloadQuality.value = TranscodeQuality.Preset("mobile_ogg")
         respond = { MockResponse.Builder().code(401).build() }
         val service = service()
         service.download(seedOne())

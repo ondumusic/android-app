@@ -25,7 +25,6 @@ import com.ondumusic.player.data.setDownloadsPaused
 import com.ondumusic.player.model.Track
 import com.ondumusic.player.settings.SettingsStore
 import com.ondumusic.player.util.AudioFormat
-import com.ondumusic.player.util.TranscodePreset
 import com.ondumusic.player.util.UiText
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -587,12 +586,12 @@ class DownloadService(
         if (library.isDownloaded(track.id)) return Outcome.Done
         val api = api.value ?: return Outcome.Requeue(waitForNetwork = false)
 
-        val preset = TranscodePreset.forDownload(settings.downloadQuality.value, track.mimetype)
+        val preset = settings.downloadPreset(track.mimetype)
         val base = track.downloadUrl.toHttpUrlOrNull() ?: api.baseUrl.resolve(track.downloadUrl)
             ?: return Outcome.Failed(UiText.Res(R.string.download_error_no_link))
-        val url = if (preset != null) base.newBuilder().addQueryParameter("transcode", "1").addQueryParameter("preset", preset).build() else base
+        val url = if (preset != null) base.newBuilder().addQueryParameter("transcode", "1").addQueryParameter("preset", preset.id).build() else base
         // Named for what it holds, so a quality change between pause and resume can't splice two encodings.
-        val part = partFile(track, preset ?: ORIGINAL_VARIANT)
+        val part = partFile(track, preset?.id ?: ORIGINAL_VARIANT)
 
         var retries = 0
         while (true) {
@@ -606,7 +605,7 @@ class DownloadService(
                 continue
             }
             when (fetched) {
-                is Fetched.Complete -> return save(track, part, fetched.mimetype ?: if (preset != null) TranscodePreset.MIMETYPE else track.mimetype)
+                is Fetched.Complete -> return save(track, part, fetched.mimetype ?: preset?.mimetype ?: track.mimetype)
                 Fetched.Restart -> {
                     part.delete()
                     continue

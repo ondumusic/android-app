@@ -2,29 +2,17 @@ package com.ondumusic.player.settings
 
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import com.ondumusic.player.api.ApiJson
 import com.ondumusic.player.model.AlbumSortOption
 import com.ondumusic.player.model.RepeatMode
 import com.ondumusic.player.model.TrackSort
+import com.ondumusic.player.model.TranscodePreset
+import com.ondumusic.player.model.TranscodePresetList
+import com.ondumusic.player.model.TranscodeQuality
+import kotlinx.serialization.SerializationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-
-/** A level rather than a server preset: which preset a level maps to depends on what the server offers, see `TranscodePreset`. */
-enum class DownloadQuality(val raw: String) {
-    Original("original"), High("high"), Mobile("mobile");
-
-    companion object {
-        fun fromRaw(raw: String?) = entries.firstOrNull { it.raw == raw } ?: Original
-    }
-}
-
-enum class StreamingQuality(val raw: String) {
-    Original("original"), High("high"), Mobile("mobile");
-
-    companion object {
-        fun fromRaw(raw: String?) = entries.firstOrNull { it.raw == raw } ?: Original
-    }
-}
 
 /**
  * [Wallpaper] is Android's own: Material You's colours taken from the wallpaper, the way the
@@ -111,9 +99,34 @@ class SettingsStore(private val prefs: SharedPreferences) {
     /** Maximum playback cache size in bytes. 0 means unlimited. */
     val playbackCacheLimit = long("playbackCacheLimit", 2L * 1024 * 1024 * 1024)
 
-    val downloadQuality = enum("downloadQuality", DownloadQuality::fromRaw) { it.raw }
+    val downloadQuality = enum("downloadQuality", { storedQuality(it) }) { it.raw }
 
-    val streamingQuality = enum("streamingQuality", StreamingQuality::fromRaw) { it.raw }
+    val streamingQuality = enum("streamingQuality", { storedQuality(it) }) { it.raw }
+
+    /**
+     * The presets the server last reported. Kept here, beside the two choices that are
+     * ids into it, and persisted so Settings and playback have it before the first
+     * `/info` of a session and when there's no network at all.
+     */
+    val serverPresets = Setting<TranscodePresetList>(
+        "serverPresets",
+        { key ->
+            getString(key, null)?.let {
+                try {
+                    ApiJson.decodeFromString(TranscodePresetList.serializer(), it)
+                } catch (e: SerializationException) {
+                    null
+                } catch (e: IllegalArgumentException) {
+                    null
+                }
+            } ?: TranscodePresetList.builtIn
+        },
+        { k, v -> putString(k, ApiJson.encodeToString(TranscodePresetList.serializer(), v)) },
+    )
+
+    fun streamingPreset(mimetype: String): TranscodePreset? = serverPresets.value.resolve(streamingQuality.value, mimetype)
+
+    fun downloadPreset(mimetype: String): TranscodePreset? = serverPresets.value.resolve(downloadQuality.value, mimetype)
 
     val artworkTintedPlayer = bool("artworkTintedPlayer", true)
 
@@ -136,4 +149,12 @@ class SettingsStore(private val prefs: SharedPreferences) {
         { getString(it, null)?.let(TrackSort::fromRawValue) },
         { k, v -> if (v == null) remove(k) else putString(k, v.rawValue) },
     )
+}
+
+/** "high" and "mobile" are what earlier builds stored, when the choice was a level the app mapped to a preset itself. */
+private fun storedQuality(raw: String?): TranscodeQuality = when (raw) {
+    null, "original" -> TranscodeQuality.Original
+    "high" -> TranscodeQuality.Preset("default_ogg")
+    "mobile" -> TranscodeQuality.Preset("mobile_ogg")
+    else -> TranscodeQuality.Preset(raw)
 }

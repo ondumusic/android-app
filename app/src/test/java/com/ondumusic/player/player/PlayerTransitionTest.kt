@@ -2,7 +2,7 @@ package com.ondumusic.player.player
 
 import com.ondumusic.player.model.QueueItem
 import com.ondumusic.player.model.RepeatMode
-import com.ondumusic.player.settings.StreamingQuality
+import com.ondumusic.player.model.TranscodeQuality
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -360,7 +360,7 @@ class PlayerTransitionTest {
 
     // Stream URLs
 
-    private fun TestScope.urlPlayer(quality: StreamingQuality = StreamingQuality.Original, base: String? = "https://music.example.com/") =
+    private fun TestScope.urlPlayer(quality: TranscodeQuality = TranscodeQuality.Original, base: String? = "https://music.example.com/") =
         makePlayer(
             settings = makeSettings("stream-url").apply { streamingQuality.value = quality },
             hooks = PlayerService.Hooks(baseUrl = { base?.toHttpUrl() }),
@@ -399,7 +399,7 @@ class PlayerTransitionTest {
 
     @Test
     fun aLowerStreamingQualityTranscodesWithItsPreset() = runTest {
-        val url = urlPlayer(StreamingQuality.Mobile).streamUrl(makeTrack(mimetype = "audio/flac", streamUrl = "/s/1?x=1"))!!
+        val url = urlPlayer(TranscodeQuality.Preset("mobile_ogg")).streamUrl(makeTrack(mimetype = "audio/flac", streamUrl = "/s/1?x=1"))!!
         assertEquals("1", url.queryParameter("x"))
         assertEquals("1", url.queryParameter("transcode"))
         assertEquals("mobile_ogg", url.queryParameter("preset"))
