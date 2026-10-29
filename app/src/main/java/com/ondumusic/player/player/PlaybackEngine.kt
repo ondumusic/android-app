@@ -40,9 +40,11 @@ interface PlaybackEngine {
 
     /**
      * Fades [source] in over the last [fadeSeconds] of the current one. Null takes it back,
-     * including a fade already under way.
+     * including a fade already under way. [duration] is the current source's length as the
+     * app shows it; the window is measured against that rather than the decoder's own
+     * duration, which for a transcode is a guess from what has arrived so far.
      */
-    fun armCrossfade(source: Source?, gain: Float = 1f, fadeSeconds: Double = 0.0)
+    fun armCrossfade(source: Source?, gain: Float = 1f, fadeSeconds: Double = 0.0, duration: Double? = null)
 
     fun pause()
     fun resume()

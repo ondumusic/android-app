@@ -73,6 +73,19 @@ class PlayerTransitionTest {
         assertEquals(3.0, fade.fadeSeconds, 0.0)
     }
 
+    /**
+     * The decoder's duration for a transcode still being produced is a guess from what has
+     * arrived, and by that clock the fade window would never come; the fade is timed against
+     * the duration the app shows instead.
+     */
+    @Test
+    fun theFadeIsTimedAgainstTheTracksDuration() = runTest {
+        engine.duration = 0.4
+        playing(listOf(makeQueueItem("A"), QueueItem(makeTrack("B", streamUrl = "/stream/b"))), crossfade = 3f)
+
+        assertEquals(200.0, engine.armedCrossfade!!.duration!!, 0.0)
+    }
+
     /** Out of order within one album is not a continuation. */
     @Test
     fun aSkipWithinTheAlbumCrossfades() = runTest {

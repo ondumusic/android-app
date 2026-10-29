@@ -63,10 +63,13 @@ class ExoPlaybackEngine(
     private var hasQueuedGapless = false
     private var reportedReady = false
 
-    private data class PendingCrossfade(val source: PlaybackEngine.Source, val gain: Float, val fadeSeconds: Double)
+    private data class PendingCrossfade(val source: PlaybackEngine.Source, val gain: Float, val fadeSeconds: Double, val duration: Double?)
+    /** Armed, waiting for the primary to reach its fade window. */
     private var pendingCrossfade: PendingCrossfade? = null
-    private var fadeStartedAt = 0L
-    private var fadeLength = 0.0
+    /** Under way. Kept so a seek back out of the window can arm it again. */
+    private var activeCrossfade: PendingCrossfade? = null
+    private var ramp: CrossfadeRamp? = null
+    private var lastRampTick = 0L
     private var secondaryGain = 1f
 
     private val primaryListener = object : Player.Listener {
@@ -98,7 +101,8 @@ class ExoPlaybackEngine(
             if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS ||
                 reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY
             ) {
-                cancelFade()
+                // Only the primary holds focus, so a secondary would play on through the interruption.
+                if (playWhenReady) continueFade() else freezeFade()
                 listener?.onPlayingChangedExternally(playWhenReady)
             }
         }
@@ -149,20 +153,22 @@ class ExoPlaybackEngine(
         primary.addMediaItem(MediaItem.fromUri(source.uri))
     }
 
-    override fun armCrossfade(source: PlaybackEngine.Source?, gain: Float, fadeSeconds: Double) {
+    override fun armCrossfade(source: PlaybackEngine.Source?, gain: Float, fadeSeconds: Double, duration: Double?) {
         cancelFade()
-        pendingCrossfade = source?.takeIf { fadeSeconds > 0 }?.let { PendingCrossfade(it, gain, fadeSeconds) }
+        pendingCrossfade = source?.takeIf { fadeSeconds > 0 }?.let { PendingCrossfade(it, gain, fadeSeconds, duration) }
         if (pendingCrossfade != null) handler.post(watchForFade)
     }
+
+    /** The caller's duration when it has one; the decoder's is the fallback for a track the library knows no length for. */
+    private fun fadeDuration(crossfade: PendingCrossfade): Double? = crossfade.duration?.takeIf { it > 0 } ?: duration
 
     /** Checks four times a second whether the primary is inside its fade window. */
     private val watchForFade: Runnable = object : Runnable {
         override fun run() {
             val pending = pendingCrossfade ?: return
-            val total = duration
-            if (total != null && primary.playWhenReady) {
-                val remaining = total - position
-                if (remaining > 0 && remaining <= pending.fadeSeconds) {
+            if (primary.playWhenReady) {
+                val remaining = CrossfadeWindow.remaining(fadeDuration(pending), position, pending.fadeSeconds)
+                if (remaining != null) {
                     beginCrossfade(pending, remaining)
                     return
                 }
@@ -173,6 +179,7 @@ class ExoPlaybackEngine(
 
     private fun beginCrossfade(pending: PendingCrossfade, remaining: Double) {
         pendingCrossfade = null
+        activeCrossfade = pending
         val next = buildPlayer(ownsFocus = false)
         secondary = next
         secondaryGain = pending.gain
@@ -180,20 +187,42 @@ class ExoPlaybackEngine(
         next.setMediaItem(MediaItem.fromUri(pending.source.uri))
         next.prepare()
         next.playWhenReady = true
-        fadeStartedAt = System.currentTimeMillis()
-        fadeLength = min(pending.fadeSeconds, remaining)
-        handler.post(ramp)
+        ramp = CrossfadeRamp(min(pending.fadeSeconds, remaining))
+        lastRampTick = System.currentTimeMillis()
+        handler.post(rampTick)
     }
 
     /** Equal-power: the two curves sum to constant loudness, where a linear fade dips in the middle. */
-    private val ramp: Runnable = object : Runnable {
+    private val rampTick: Runnable = object : Runnable {
         override fun run() {
             val next = secondary ?: return
-            val progress = min((System.currentTimeMillis() - fadeStartedAt) / 1000.0 / fadeLength, 1.0).toFloat()
+            val fade = ramp ?: return
+            val now = System.currentTimeMillis()
+            fade.advance((now - lastRampTick) / 1000.0)
+            lastRampTick = now
+            val progress = fade.fraction
             primary.volume = userVolume * primaryGain * cos(progress * PI.toFloat() / 2)
             next.volume = userVolume * secondaryGain * sin(progress * PI.toFloat() / 2)
-            if (progress >= 1f) completeCrossfade(next) else handler.postDelayed(this, 50)
+            if (fade.isComplete) completeCrossfade(next) else handler.postDelayed(this, 50)
         }
+    }
+
+    /**
+     * Both players and the fade between them: pausing only the one in front would leave
+     * the incoming track audibly playing on and the fade finishing by itself. The ramp
+     * counts only the time between its ticks, so stopping them freezes it where it is.
+     */
+    private fun freezeFade() {
+        handler.removeCallbacks(rampTick)
+        secondary?.playWhenReady = false
+    }
+
+    private fun continueFade() {
+        val next = secondary ?: return
+        next.playWhenReady = true
+        lastRampTick = System.currentTimeMillis()
+        handler.removeCallbacks(rampTick)
+        handler.post(rampTick)
     }
 
     /** The secondary is already playing at the right place; promoting it avoids any stutter from re-seeking. */
@@ -206,6 +235,8 @@ class ExoPlaybackEngine(
         old.release()
         primary = next
         secondary = null
+        activeCrossfade = null
+        ramp = null
         primaryGain = secondaryGain
         reportedReady = true
         hasQueuedGapless = false
@@ -216,31 +247,43 @@ class ExoPlaybackEngine(
 
     private fun cancelFade() {
         handler.removeCallbacks(watchForFade)
-        handler.removeCallbacks(ramp)
+        handler.removeCallbacks(rampTick)
         secondary?.release()
         secondary = null
+        activeCrossfade = null
+        ramp = null
         secondaryGain = 1f
         applyVolume()
     }
 
     override fun pause() {
-        // Pausing mid-fade would leave both tracks half-loud; settle on the current one.
-        cancelFade()
+        handler.removeCallbacks(watchForFade)
+        freezeFade()
         primary.playWhenReady = false
     }
 
     override fun resume() {
         primary.playWhenReady = true
-        pendingCrossfade?.let { handler.post(watchForFade) }
+        continueFade()
+        pendingCrossfade?.let { watchAgain() }
     }
 
     override fun seek(seconds: Double) {
-        if (secondary != null) cancelFade()
-        primary.seekTo(0, (seconds * 1000).toLong())
-        pendingCrossfade?.let {
-            handler.removeCallbacks(watchForFade)
-            handler.post(watchForFade)
+        val active = activeCrossfade
+        // A fade under way runs on its own clock, so dragging back out of the window would
+        // still hand over to the next track seconds later. Arming it again lets it start
+        // over once the window comes round.
+        if (active != null && CrossfadeWindow.remaining(fadeDuration(active), seconds, active.fadeSeconds) == null) {
+            cancelFade()
+            pendingCrossfade = active
         }
+        primary.seekTo(0, (seconds * 1000).toLong())
+        pendingCrossfade?.let { watchAgain() }
+    }
+
+    private fun watchAgain() {
+        handler.removeCallbacks(watchForFade)
+        handler.post(watchForFade)
     }
 
     override fun stop() {

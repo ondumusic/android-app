@@ -7,7 +7,7 @@ package com.ondumusic.player.player
 class FakePlaybackEngine : PlaybackEngine {
     data class Play(val source: PlaybackEngine.Source, val gain: Float, val startAt: Double)
     data class Gapless(val source: PlaybackEngine.Source?, val gain: Float)
-    data class Crossfade(val source: PlaybackEngine.Source?, val gain: Float, val fadeSeconds: Double)
+    data class Crossfade(val source: PlaybackEngine.Source?, val gain: Float, val fadeSeconds: Double, val duration: Double?)
 
     override var listener: PlaybackEngine.Listener? = null
 
@@ -38,8 +38,8 @@ class FakePlaybackEngine : PlaybackEngine {
         gaplessCalls += Gapless(source, gain)
     }
 
-    override fun armCrossfade(source: PlaybackEngine.Source?, gain: Float, fadeSeconds: Double) {
-        crossfadeCalls += Crossfade(source, gain, fadeSeconds)
+    override fun armCrossfade(source: PlaybackEngine.Source?, gain: Float, fadeSeconds: Double, duration: Double?) {
+        crossfadeCalls += Crossfade(source, gain, fadeSeconds, duration)
     }
 
     override fun pause() {

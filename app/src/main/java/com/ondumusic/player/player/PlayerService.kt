@@ -798,7 +798,7 @@ class PlayerService(
                 engine.setNextGapless(source, nextGain)
             } else {
                 val fade = settings.crossfadeDuration.value.toDouble()
-                if (fade > 0) engine.armCrossfade(source, nextGain, fade)
+                if (fade > 0) engine.armCrossfade(source, nextGain, fade, duration)
             }
         }
     }
