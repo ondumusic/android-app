@@ -47,6 +47,8 @@ class SyncServiceTest {
     private val pages = mutableMapOf<String?, String>()
     private var info = """{"version": "1.0.0", "apiVersion": $SUPPORTED_API_VERSION}"""
     private var syncStatus = 200
+    /** Cursors the server answers with 400, as it does one it can't read. */
+    private val rejectedCursors = mutableSetOf<String>()
 
     private val artistId = "11111111-1111-1111-1111-111111111111"
     private val albumId = "22222222-2222-2222-2222-222222222222"
@@ -59,7 +61,8 @@ class SyncServiceTest {
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse = when (request.url.encodedPath) {
                 "/api/info" -> json(info)
-                "/api/sync" -> pages[request.url.queryParameter("cursor")]
+                "/api/sync" -> if (request.url.queryParameter("cursor") in rejectedCursors) MockResponse.Builder().code(400).build()
+                else pages[request.url.queryParameter("cursor")]
                     ?.let { MockResponse.Builder().code(syncStatus).body(it).build() }
                     ?: MockResponse.Builder().code(500).build()
                 else -> MockResponse.Builder().code(404).build()
@@ -213,6 +216,56 @@ class SyncServiceTest {
         pages["c1"] = page("c2", complete = true)
         sync.sync()
         assertTrue(sync.notices.value.isEmpty())
+    }
+
+    @Test
+    fun everySyncRequestCarriesTheSchemaVersion() = runTest {
+        pages[null] = page("c1", complete = true)
+        pages["c1"] = page("c2", complete = true)
+        val sync = service()
+
+        sync.sync()
+        sync.sync()
+
+        val syncRequests = (0 until server.requestCount).map { server.takeRequest() }.filter { it.url.encodedPath == "/api/sync" }
+        assertEquals(2, syncRequests.size)
+        syncRequests.forEach { assertEquals(ApiClient.SYNC_SCHEMA_VERSION.toString(), it.url.queryParameter("schemaVersion")) }
+    }
+
+    /** A stored cursor the server won't read would otherwise fail every sync from here on; starting over is all upserts, so nothing is cleared first. */
+    @Test
+    fun aRejectedCursorStartsOverWithoutClearingTheLibrary() = runTest {
+        pages[null] = page("c1", complete = true, tracks = listOf(track(t1, "Airbag")), withArtist = true)
+        service().sync()
+        assertNotNull(db.tracks().get(UUID.fromString(t1)))
+
+        rejectedCursors += "c1"
+        pages[null] = page("c2", complete = true)
+        var reconciledAsInitial: Boolean? = null
+        val sync = service(SyncService.Hooks(reconcileDownloads = { reconciledAsInitial = it }))
+        sync.sync()
+
+        assertNull(sync.error.value)
+        assertEquals("c2", prefs.getString("syncCursor", null))
+        assertNotNull(db.tracks().get(UUID.fromString(t1)))
+        assertEquals(false, reconciledAsInitial)
+    }
+
+    /** Only a cursor is retried: a 400 on a sync from scratch is a real failure. */
+    @Test
+    fun aRejectedInitialSyncIsAnError() = runTest {
+        val sync = service()
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when (request.url.encodedPath) {
+                "/api/info" -> json(info)
+                else -> MockResponse.Builder().code(400).build()
+            }
+        }
+
+        sync.sync()
+
+        assertNotNull(sync.error.value)
+        assertEquals(2, server.requestCount)
     }
 
     /** The server can be updated while the app is running, so `/info` goes with every sync rather than once per launch. */

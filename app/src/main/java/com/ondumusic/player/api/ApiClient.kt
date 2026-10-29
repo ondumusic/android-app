@@ -72,8 +72,7 @@ class ApiClient(
 
     // Sync
 
-    suspend fun fetchSync(cursor: String?): SyncResponse =
-        get("sync", if (cursor != null) mapOf("cursor" to cursor) else emptyMap())
+    suspend fun fetchSync(cursor: String?): SyncResponse = get("sync", syncQuery(cursor))
 
     suspend fun fetchServerInfo(): ServerInfo = get("info")
 
@@ -153,6 +152,21 @@ class ApiClient(
     }
 
     companion object {
+        /**
+         * Which shape of the entities this build reads. Bump it when the app starts using a
+         * field it used to ignore: the server then sends every entity again instead of only
+         * what changed since the cursor, so rows it already sent pick the field up too. Any
+         * change in either side's number triggers the resend, so it never needs to match
+         * the server's.
+         */
+        const val SYNC_SCHEMA_VERSION = 1
+
+        /** The schema version goes on every sync, first one included: the server records it in the cursor and has to have one to compare against. */
+        fun syncQuery(cursor: String?): Map<String, String> = buildMap {
+            put("schemaVersion", SYNC_SCHEMA_VERSION.toString())
+            if (cursor != null) put("cursor", cursor)
+        }
+
         /**
          * The user's languages in order, the way a browser sends them, so wording the server
          * composes, such as preset names, comes back translated. OkHttp sends none on its

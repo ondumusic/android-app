@@ -172,7 +172,18 @@ class SyncService(
             var page = 0
             while (true) {
                 page++
-                val response = api.fetchSync(pageCursor)
+                val response = try {
+                    api.fetchSync(pageCursor)
+                } catch (e: ApiException.Http) {
+                    // The server refuses a cursor it can't read rather than ignoring it,
+                    // and a stored one that never gets replaced would fail every sync
+                    // from here on. Paging from the start again is all upserts, so the
+                    // library stays usable while it happens.
+                    if (e.code != 400 || pageCursor == null) throw e
+                    pageCursor = null
+                    cursor = null
+                    continue
+                }
                 if (BuildConfig.DEBUG) {
                     Log.d(TAG, "page $page — ${response.artists.size} artists, ${response.albums.size} albums, " +
                         "${response.tracks.size} tracks, ${response.deletions.size} deletions, complete: ${response.complete}")
@@ -290,10 +301,10 @@ class SyncService(
     }
 
     /**
-     * Throws away the cursor and re-pages the whole library. A delta only sends what
-     * changed since the cursor, so a field added to the client after the server sent
-     * those rows is invisible forever on an install whose cursor has outrun it. This is
-     * the way back. Downloaded files are kept.
+     * Throws away the cursor and re-pages the whole library: the way back when the local
+     * copy has drifted from the server in a way a delta can't repair. Downloaded files
+     * are kept. A field the app newly reads doesn't need this, see
+     * [ApiClient.SYNC_SCHEMA_VERSION].
      */
     suspend fun rebuildLibrary() {
         clearState(prefs)
