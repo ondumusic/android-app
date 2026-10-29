@@ -18,12 +18,15 @@ fun formatPlaybackTime(seconds: Double): String {
 /**
  * What is left of the track, in whole seconds taken from whole seconds, so elapsed and
  * remaining always add up to the duration the track lists show. Subtracting first and
- * then flooring leaves the pair a second short for most of every second.
+ * then flooring leaves the pair a second short for most of every second. The one
+ * exception is the last fraction of a second, which still reads as a second left:
+ * "-0:00" with the music going reads as the song having ended.
  */
 fun remainingSeconds(position: Double, duration: Double): Double {
     if (!duration.isFinite() || duration <= 0) return 0.0
     val elapsed = if (position.isFinite()) max(0L, position.toLong()) else 0L
-    return max(0L, duration.toLong() - elapsed).toDouble()
+    val remaining = max(0L, duration.toLong() - elapsed)
+    return if (remaining == 0L && position < duration) 1.0 else remaining.toDouble()
 }
 
 /**

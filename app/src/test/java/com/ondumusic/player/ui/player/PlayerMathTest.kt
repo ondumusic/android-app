@@ -29,10 +29,18 @@ class PlayerMathTest {
 
     @Test fun elapsedAndRemainingAddUpToTheDuration() {
         val duration = 200.7
-        for (position in listOf(0.0, 0.4, 1.5, 99.99, 200.0, 200.7)) {
+        for (position in listOf(0.0, 0.4, 1.5, 99.99, 199.9, 200.7)) {
             val elapsed = position.toLong()
             assertEquals(200L, elapsed + remainingSeconds(position, duration).toLong())
         }
+    }
+
+    /** The pair is allowed one second too many right at the end rather than show "-0:00" with the music still going. */
+    @Test fun theLastFractionOfASecondStillCountsAsOne() {
+        assertEquals(1.0, remainingSeconds(200.2, 200.7), 0.0)
+        assertEquals(1.0, remainingSeconds(199.5, 200.0), 0.0)
+        assertEquals(0.0, remainingSeconds(200.7, 200.7), 0.0)
+        assertEquals(0.0, remainingSeconds(200.0, 200.0), 0.0)
     }
 
     @Test fun remainingNeverGoesNegative() {
