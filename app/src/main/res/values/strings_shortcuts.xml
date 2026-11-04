@@ -4,4 +4,6 @@
     <string name="shortcut_shuffle_all_long">Shuffle your library</string>
     <string name="shortcut_search">Search</string>
     <string name="shortcut_downloads">Downloads</string>
+    <string name="shortcut_private_session">Private session</string>
+    <string name="shortcut_private_session_long">Start a private session</string>
 </resources>

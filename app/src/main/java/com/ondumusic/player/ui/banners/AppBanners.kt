@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -76,12 +77,14 @@ fun WithAppBanners(content: @Composable () -> Unit) {
     val downloads by container.downloads.state.collectAsStateWithLifecycle()
     val noticeHost = remember { DownloadNoticeHost() }
     val downloadNotice = downloads.noticeReason.takeIf { noticeHost.screensShowingNotice == 0 }
+    val privateEndsAt by container.settings.privateSessionEndsAt.flow.collectAsStateWithLifecycle()
+    val privateSession = remember(privateEndsAt) { container.settings.isPrivateSession }
 
     // Asked for straight away, as iOS does; the strip stays for when it's put off.
     LaunchedEffect(expired) { showReAuth = expired }
 
     val showVersion = compatibility.shouldShow(dismissedVersion)
-    val any = expired || notices.isNotEmpty() || showVersion || downloadNotice != null
+    val any = expired || notices.isNotEmpty() || showVersion || downloadNotice != null || privateSession
 
     Column(Modifier.fillMaxSize()) {
         if (any) {
@@ -99,6 +102,13 @@ fun WithAppBanners(content: @Composable () -> Unit) {
                     ) {
                         // Dismissing clears it for every client, which is what the server does with it.
                         TextButton(onClick = { container.scope.launch { sync.dismiss(notice) } }) { Text(stringResource(R.string.banner_dismiss)) }
+                    }
+                }
+                if (privateSession) {
+                    // The action ends the session rather than hiding the strip: a bar you could
+                    // dismiss and forget would bring back what the idle timeout exists to prevent.
+                    Banner(Icons.Outlined.VisibilityOff, stringResource(R.string.banner_private_session), warning = false) {
+                        TextButton(onClick = { container.settings.endPrivateSession() }) { Text(stringResource(R.string.banner_end_private_session)) }
                     }
                 }
                 downloadNotice?.let { reason ->

@@ -11,6 +11,12 @@
     <string name="settings_normalize_footer">Play songs at a similar loudness. Only ever turns music down, and albums keep their own dynamics.</string>
     <string name="settings_record_plays">Record plays</string>
     <string name="settings_record_plays_footer">Tell your server what you listen to, so play counts include this device.</string>
+    <string name="settings_private_session">Private session</string>
+    <string name="settings_private_session_footer">Stop counting plays on this device for now. Ends on its own half an hour after the music stops.</string>
+    <string name="settings_private_session_tile">Add to Quick Settings</string>
+    <string name="settings_private_session_tile_footer">Start and end a private session from the notification shade.</string>
+    <string name="tile_private_session">Private session</string>
+    <string name="tile_private_session_active">Plays aren’t counted</string>
 
     <string name="settings_appearance">Appearance</string>
     <string name="settings_tinted_player">Artwork-tinted player</string>

@@ -20,6 +20,8 @@
     <string name="sign_out">Sign out</string>
     <string name="retry">Retry</string>
     <string name="undo">Undo</string>
+    <string name="state_on">On</string>
+    <string name="state_off">Off</string>
     <plurals name="artist_count">
         <item quantity="one">%d artist</item>
         <item quantity="other">%d artists</item>

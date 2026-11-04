@@ -1,6 +1,11 @@
 package com.ondumusic.player.ui.settings
 
+import android.app.StatusBarManager
+import android.content.ComponentName
+import android.content.Context
+import android.os.Build
 import android.text.format.DateUtils
+import androidx.annotation.RequiresApi
 import android.text.format.Formatter
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
@@ -58,6 +63,7 @@ import com.ondumusic.player.model.TranscodePresetList
 import com.ondumusic.player.model.TranscodeQuality
 import com.ondumusic.player.settings.AccentColor
 import com.ondumusic.player.settings.SettingsStore
+import com.ondumusic.player.tile.PrivateSessionTileService
 import com.ondumusic.player.ui.LocalContainer
 import com.ondumusic.player.ui.LocalSession
 import com.ondumusic.player.ui.navigation.LocalNavigator
@@ -106,12 +112,12 @@ private fun Footer(text: String) {
 }
 
 @Composable
-private fun SwitchRow(title: String, checked: Boolean, onChange: (Boolean) -> Unit, supporting: String? = null) {
+private fun SwitchRow(title: String, checked: Boolean, onChange: (Boolean) -> Unit, supporting: String? = null, enabled: Boolean = true) {
     ListItem(
         headlineContent = { Text(title) },
         supportingContent = supporting?.let { { Text(it) } },
-        trailingContent = { Switch(checked = checked, onCheckedChange = null) },
-        modifier = Modifier.selectable(selected = checked, role = Role.Switch, onClick = { onChange(!checked) }),
+        trailingContent = { Switch(checked = checked, onCheckedChange = null, enabled = enabled) },
+        modifier = Modifier.selectable(selected = checked, enabled = enabled, role = Role.Switch, onClick = { onChange(!checked) }),
     )
 }
 
@@ -185,6 +191,35 @@ private fun PlaybackSection(settings: SettingsStore) {
         supporting = stringResource(R.string.settings_normalize_footer))
     SwitchRow(stringResource(R.string.settings_record_plays), recordPlays, { settings.recordPlays.value = it },
         supporting = stringResource(R.string.settings_record_plays_footer))
+    PrivateSessionRows(settings, enabled = recordPlays)
+}
+
+@Composable
+private fun PrivateSessionRows(settings: SettingsStore, enabled: Boolean) {
+    val endsAt by settings.privateSessionEndsAt.flow.collectAsStateWithLifecycle()
+    val active = remember(endsAt) { settings.isPrivateSession }
+    SwitchRow(stringResource(R.string.settings_private_session), active, { if (it) settings.startPrivateSession() else settings.endPrivateSession() },
+        supporting = stringResource(R.string.settings_private_session_footer), enabled = enabled)
+    // Tiles are added by hand from the shade's edit mode, which few people find; Android 13
+    // lets the app offer it instead.
+    if (Build.VERSION.SDK_INT >= 33) {
+        val context = LocalContext.current
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.settings_private_session_tile)) },
+            supportingContent = { Text(stringResource(R.string.settings_private_session_tile_footer)) },
+            modifier = Modifier.clickable(enabled = enabled) { requestPrivateSessionTile(context) },
+        )
+    }
+}
+
+@RequiresApi(33)
+private fun requestPrivateSessionTile(context: Context) {
+    context.getSystemService(StatusBarManager::class.java).requestAddTileService(
+        ComponentName(context, PrivateSessionTileService::class.java),
+        context.getString(R.string.tile_private_session),
+        android.graphics.drawable.Icon.createWithResource(context, R.drawable.ic_tile_private_session),
+        context.mainExecutor,
+    ) {}
 }
 
 @Composable

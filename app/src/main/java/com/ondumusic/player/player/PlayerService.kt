@@ -887,12 +887,13 @@ class PlayerService(
         val delta = seconds - previous
         if (delta <= 0 || delta >= 2) return
         listenedSeconds += delta
+        settings.extendPrivateSession()
 
         if (hasReportedCurrentPlay || listenedSeconds < PlayThreshold.seconds(track.duration.takeIf { it > 0 } ?: duration)) return
         hasReportedCurrentPlay = true
         // Checked when it qualifies rather than when it started, so turning the setting
-        // off mid-track stops that track being counted.
-        if (!settings.recordPlays.value) return
+        // off or going private mid-track stops that track being counted.
+        if (!settings.recordPlays.value || settings.isPrivateSession) return
         val playedAt = playStartedAt ?: Instant.now()
         scope.launch { library?.recordLocalPlay(track.id, playedAt) }
         hooks.recordPlay(track.id, playedAt)

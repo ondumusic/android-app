@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,6 +43,7 @@ import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
@@ -72,8 +74,11 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -86,6 +91,7 @@ import com.ondumusic.player.model.RepeatMode
 import com.ondumusic.player.model.Track
 import com.ondumusic.player.player.PlayerService
 import com.ondumusic.player.ui.LocalContainer
+import com.ondumusic.player.ui.components.LocalSnackbars
 import com.ondumusic.player.ui.components.TrackActionSheet
 import com.ondumusic.player.ui.navigation.LocalNavigator
 import kotlinx.coroutines.CoroutineScope
@@ -397,12 +403,17 @@ private fun ToggleIcon(checked: Boolean, onClick: () -> Unit, icon: androidx.com
 
 /**
  * Round while paused, squarer while playing — the shape says what state the player is in
- * before the icon is read. A ring around it means the track is still loading.
+ * before the icon is read. A ring around it means the track is still loading, and the
+ * button stays round under it until sound actually starts: the ring is a circle, and a
+ * circle around a square shows at the sides.
  */
 @Composable
 private fun PlayPauseButton(state: PlayerService.State, size: androidx.compose.ui.unit.Dp, onClick: () -> Unit) {
-    val corner by animateDpAsState(if (state.isPlaying) size * 0.3f else size / 2, spring(dampingRatio = 0.6f, stiffness = 500f), label = "corner")
-    Box(contentAlignment = Alignment.Center) {
+    val playing = state.isPlaying && !state.isBuffering
+    val corner by animateDpAsState(if (playing) size * 0.3f else size / 2, spring(dampingRatio = 0.6f, stiffness = 500f), label = "corner")
+    // The box stays the button's size whether or not the ring is up; the ring overflows it,
+    // so its coming and going doesn't nudge the whole transport row.
+    Box(Modifier.size(size), contentAlignment = Alignment.Center) {
         FilledIconButton(onClick = onClick, shape = RoundedCornerShape(corner), modifier = Modifier.size(size)) {
             Icon(
                 if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
@@ -413,10 +424,37 @@ private fun PlayPauseButton(state: PlayerService.State, size: androidx.compose.u
         if (state.isBuffering) {
             val loading = stringResource(R.string.player_buffering)
             CircularProgressIndicator(
-                Modifier.size(size + 12.dp).semantics { contentDescription = loading },
+                Modifier.requiredSize(size + 12.dp).semantics { contentDescription = loading },
                 strokeWidth = 3.dp,
             )
         }
+    }
+}
+
+/**
+ * Highlighted while a session runs, like the output button once audio leaves the device.
+ * Absent entirely with Record plays off, when there is nothing to be private from.
+ */
+@Composable
+private fun PrivateSessionButton(neutral: androidx.compose.material3.ButtonColors) {
+    val settings = LocalContainer.current.settings
+    val snackbars = LocalSnackbars.current
+    val resources = LocalResources.current
+    val recordPlays by settings.recordPlays.flow.collectAsStateWithLifecycle()
+    val endsAt by settings.privateSessionEndsAt.flow.collectAsStateWithLifecycle()
+    if (!recordPlays) return
+    val active = remember(endsAt) { settings.isPrivateSession }
+    TextButton(
+        onClick = {
+            settings.togglePrivateSession()
+            snackbars.show(resources.getString(if (settings.isPrivateSession) R.string.player_private_session_started else R.string.player_private_session_ended))
+        },
+        colors = if (active) ButtonDefaults.textButtonColors() else neutral,
+        modifier = Modifier.semantics { stateDescription = resources.getString(if (active) R.string.state_on else R.string.state_off) },
+    ) {
+        Icon(Icons.Outlined.VisibilityOff, contentDescription = null, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.size(8.dp))
+        Text(stringResource(R.string.player_private_session), maxLines = 1)
     }
 }
 
@@ -426,26 +464,48 @@ private fun BottomActions(onQueue: () -> Unit) {
     val route = rememberOutputRoute()
     val outputLabel = stringResource(R.string.player_output)
     val neutral = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant)
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 8.dp).heightIn(min = 48.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    CenteredActionRow(Modifier.fillMaxWidth().padding(horizontal = 8.dp).heightIn(min = 48.dp)) {
         // Named the way the system media controls name it, and highlighted once it's
         // somewhere other than the device itself, so music going to a forgotten speaker shows.
         TextButton(
             onClick = { showSystemOutputSwitcher(context) },
             colors = if (route.isExternal) ButtonDefaults.textButtonColors() else neutral,
-            modifier = Modifier.weight(1f, fill = false).semantics { contentDescription = "$outputLabel: ${route.name}" },
+            modifier = Modifier.semantics { contentDescription = "$outputLabel: ${route.name}" },
         ) {
             Icon(route.icon, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(Modifier.size(8.dp))
             Text(route.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
+        PrivateSessionButton(neutral)
         TextButton(onClick = onQueue, colors = neutral) {
             Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(Modifier.size(8.dp))
             Text(stringResource(R.string.player_queue))
+        }
+    }
+}
+
+/**
+ * First child at the start, last at the end, and one in between centred under the play
+ * button rather than between two labels of different widths, which space-between would
+ * do. The centre only gives way when a long route name on the left needs the room; the
+ * end child always keeps its width. Works with two children as well, when there is no middle.
+ */
+@Composable
+private fun CenteredActionRow(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Layout(content, modifier) { measurables, constraints ->
+        val width = constraints.maxWidth
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val middle = measurables.getOrNull(1)?.takeIf { measurables.size == 3 }?.measure(loose)
+        val middleWidth = middle?.width ?: 0
+        val half = (width - middleWidth) / 2
+        val end = measurables.last().measure(loose.copy(maxWidth = half))
+        val start = measurables.first().measure(loose.copy(maxWidth = (width - middleWidth - end.width).coerceAtLeast(0)))
+        val height = maxOf(start.height, middle?.height ?: 0, end.height, constraints.minHeight)
+        layout(width, height) {
+            start.placeRelative(0, (height - start.height) / 2)
+            middle?.placeRelative(maxOf(half, start.width), (height - middle.height) / 2)
+            end.placeRelative(width - end.width, (height - end.height) / 2)
         }
     }
 }

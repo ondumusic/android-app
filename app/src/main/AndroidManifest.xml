@@ -55,6 +55,20 @@
             </intent-filter>
         </service>
 
+        <service
+            android:name=".tile.PrivateSessionTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile_private_session"
+            android:label="@string/tile_private_session"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="true" />
+        </service>
+
         <!-- WorkManager's own service, which runs DownloadWorker in the foreground. -->
         <service
             android:name="androidx.work.impl.foreground.SystemForegroundService"

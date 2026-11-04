@@ -257,6 +257,9 @@ fun MainScreen() {
                 expansion.collapse()
                 navigator.push(Route.Downloads)
             }
+            // Start only: ending is what the banner is for, and opening the app to stop
+            // something reads backwards.
+            LaunchAction.PrivateSession -> container.settings.startPrivateSession()
             LaunchAction.ShuffleAll -> {
                 val online = container.network.isOnline.value
                 val tracks = container.library.allTracks().filter { online || it.isDownloaded }

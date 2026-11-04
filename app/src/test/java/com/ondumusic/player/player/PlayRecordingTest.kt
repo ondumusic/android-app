@@ -98,9 +98,17 @@ class PlayRecordingTest {
 
     private class Recorded(val trackId: UUID, val playedAt: Instant)
 
-    private suspend fun TestScope.playingPlayer(lib: MusicLibrary, recorded: MutableList<Recorded>, recordPlays: Boolean = true): Pair<PlayerService, UUID> {
+    private suspend fun TestScope.playingPlayer(
+        lib: MusicLibrary,
+        recorded: MutableList<Recorded>,
+        recordPlays: Boolean = true,
+        privateSession: Boolean = false,
+    ): Pair<PlayerService, UUID> {
         val trackId = lib.seed(listOf("Track")).single()
-        val settings = makeSettings("play-recording").apply { this.recordPlays.value = recordPlays }
+        val settings = makeSettings("play-recording").apply {
+            this.recordPlays.value = recordPlays
+            if (privateSession) startPrivateSession()
+        }
         val hooks = PlayerService.Hooks(
             baseUrl = testHooks.baseUrl,
             recordPlay = { id, at -> recorded += Recorded(id, at) },
@@ -147,6 +155,19 @@ class PlayRecordingTest {
         player.listen(190.0, 199.0)
 
         assertTrue(recorded.isEmpty())
+    }
+
+    @Test
+    fun nothingIsReportedDuringAPrivateSession() = test {
+        val lib = library()
+        val recorded = mutableListOf<Recorded>()
+        val (player, trackId) = playingPlayer(lib, recorded, privateSession = true)
+
+        player.listen(0.0, 150.0)
+        testScheduler.runCurrent()
+
+        assertTrue(recorded.isEmpty())
+        assertEquals(0, lib.track(trackId)!!.playCount)
     }
 
     @Test

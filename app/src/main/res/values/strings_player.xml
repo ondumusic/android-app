@@ -19,6 +19,9 @@
     <string name="player_buffering">Loading</string>
     <string name="player_queue">Queue</string>
     <string name="player_output">Choose where audio plays</string>
+    <string name="player_private_session">Private session</string>
+    <string name="player_private_session_started">Play history paused</string>
+    <string name="player_private_session_ended">Play history resumed</string>
     <string name="player_output_this_device">This device</string>
     <string name="player_output_headphones">Headphones</string>
     <string name="player_output_bluetooth">Bluetooth</string>

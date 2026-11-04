@@ -9,7 +9,8 @@ import kotlinx.coroutines.flow.asStateFlow
 enum class LaunchAction(val intentAction: String) {
     ShuffleAll("com.ondumusic.player.action.SHUFFLE_ALL"),
     Search("com.ondumusic.player.action.SEARCH"),
-    Downloads("com.ondumusic.player.action.DOWNLOADS");
+    Downloads("com.ondumusic.player.action.DOWNLOADS"),
+    PrivateSession("com.ondumusic.player.action.PRIVATE_SESSION");
 
     companion object {
         fun from(intent: Intent?): LaunchAction? = entries.firstOrNull { it.intentAction == intent?.action }

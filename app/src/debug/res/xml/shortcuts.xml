@@ -29,4 +29,14 @@
             android:targetClass="com.ondumusic.player.MainActivity"
             android:targetPackage="com.ondumusic.ondu.dev" />
     </shortcut>
+    <shortcut
+        android:shortcutId="private_session"
+        android:icon="@drawable/ic_shortcut_private_session"
+        android:shortcutShortLabel="@string/shortcut_private_session"
+        android:shortcutLongLabel="@string/shortcut_private_session_long">
+        <intent
+            android:action="com.ondumusic.player.action.PRIVATE_SESSION"
+            android:targetClass="com.ondumusic.player.MainActivity"
+            android:targetPackage="com.ondumusic.ondu.dev" />
+    </shortcut>
 </shortcuts>

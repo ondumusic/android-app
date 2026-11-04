@@ -42,7 +42,11 @@ enum class LibraryFilter(val raw: String) {
  * Read synchronously at startup — the player needs its volume, repeat mode and crossfade
  * before anything is on screen — and observable as flows afterwards.
  */
-class SettingsStore(private val prefs: SharedPreferences) {
+class SettingsStore(
+    private val prefs: SharedPreferences,
+    /** The clock the private session is measured against; injectable so a test can let one lapse without waiting. */
+    private val now: () -> Long = System::currentTimeMillis,
+) {
 
     /** One stored value, published as a flow and written through on every change. */
     inner class Setting<T>(
@@ -91,6 +95,39 @@ class SettingsStore(private val prefs: SharedPreferences) {
      */
     val recordPlays = bool("recordPlays", true)
 
+    /**
+     * When the running private session lapses, as epoch millis; 0 with none running. Pushed
+     * forward while music plays, so the session ends after the music does, not at a fixed time.
+     */
+    val privateSessionEndsAt = long("privateSessionEndsAt", 0L)
+
+    /**
+     * This device records no plays while true. Derived rather than stored, so a session that
+     * lapsed while the app was closed is simply over on the next launch.
+     */
+    val isPrivateSession: Boolean get() = privateSessionEndsAt.value > now()
+
+    fun startPrivateSession() {
+        privateSessionEndsAt.value = now() + PRIVATE_SESSION_IDLE_WINDOW_MS
+    }
+
+    fun endPrivateSession() {
+        privateSessionEndsAt.value = 0L
+    }
+
+    fun togglePrivateSession() = if (isPrivateSession) endPrivateSession() else startPrivateSession()
+
+    /**
+     * Fed by playback progress. Writes only once the deadline has drifted a minute: the player
+     * ticks every second, and each write here is a preferences write and a flow emission.
+     */
+    fun extendPrivateSession() {
+        if (!isPrivateSession) return
+        val target = now() + PRIVATE_SESSION_IDLE_WINDOW_MS
+        if (target - privateSessionEndsAt.value < 60_000L) return
+        privateSessionEndsAt.value = target
+    }
+
     /** Scale playback so every track lands near the same loudness. See `LoudnessNormalization` for why it can only make things quieter. */
     val normalizeVolume = bool("normalizeVolume", true)
 
@@ -138,6 +175,15 @@ class SettingsStore(private val prefs: SharedPreferences) {
     val autoDownloadNewTracks = bool("autoDownloadNewTracks", false)
 
     val libraryFilter = enum("libraryFilter", LibraryFilter::fromRaw) { it.raw }
+
+    companion object {
+        /**
+         * How long a private session outlives the last thing played. Long enough to span a
+         * break between sets; short enough that half an hour of silence, which almost always
+         * means the workout is over, ends it before the drive home gets swallowed too.
+         */
+        const val PRIVATE_SESSION_IDLE_WINDOW_MS = 30L * 60 * 1000
+    }
 
     val albumListSort = enum("albumListSort", { raw -> AlbumSortOption.entries.firstOrNull { it.name == raw } ?: AlbumSortOption.Artist }) { it.name }
 
