@@ -14,6 +14,8 @@ import coil3.request.transitionFactory
 import coil3.transition.CrossfadeTransition
 import coil3.transition.Transition
 import coil3.transition.TransitionTarget
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class OnduApplication : Application(), SingletonImageLoader.Factory {
     lateinit var container: AppContainer
@@ -22,13 +24,20 @@ class OnduApplication : Application(), SingletonImageLoader.Factory {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        // Where the artwork lived before it moved beside the downloads.
+        container.scope.launch(Dispatchers.IO) { cacheDir.resolve("artwork").deleteRecursively() }
     }
 
-    /** Artwork shares the app's HTTP client and keeps a disk cache, so covers survive offline. */
+    /**
+     * Artwork shares the app's HTTP client and keeps a disk store, so covers survive offline.
+     * Beside the downloads rather than in the cache directory: covers someone chose to
+     * preload are library data for listening offline, and the cache directory is what the
+     * system clears when it wants the room back, and what "Clear cache" in app info wipes.
+     */
     override fun newImageLoader(context: PlatformContext): ImageLoader =
         ImageLoader.Builder(context)
             .components { add(OkHttpNetworkFetcherFactory(callFactory = { container.http })) }
-            .diskCache { DiskCache.Builder().directory(cacheDir.resolve("artwork")).maxSizeBytes(ARTWORK_CACHE_BYTES).build() }
+            .diskCache { DiskCache.Builder().directory(filesDir.resolve("artwork")).maxSizeBytes(ARTWORK_CACHE_BYTES).build() }
             .transitionFactory(NetworkCrossfade)
             .build()
 }
