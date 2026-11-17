@@ -34,7 +34,7 @@ class QueueUndoTest {
     /** Everything an undo has to put back, compared by identity rather than by name. */
     private data class Shape(val ids: List<Any>, val currentIndex: Int, val shuffled: List<Int>?, val userModified: Boolean)
 
-    private val PlayerService.shape get() = Shape(s.queue.map { it.id }, s.currentIndex, s.shuffledIndices, s.isQueueUserModified)
+    private val PlayerService.shape get() = Shape(s.queue.map { it.id }, s.currentIndex, s.playOrder, s.isQueueUserModified)
 
     private fun PlayerService.undoLatest(): Boolean = undo(undoable.value ?: error("Nothing to undo"))
 

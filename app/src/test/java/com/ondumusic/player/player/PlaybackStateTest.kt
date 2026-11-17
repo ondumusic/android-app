@@ -120,7 +120,7 @@ class PlaybackStateTest {
 
         val player = makePlayer(store = store, library = lib)
 
-        assertEquals(listOf(2, 0, 1), player.s.shuffledIndices)
+        assertEquals(listOf(2, 0, 1), player.s.playOrder)
         assertEquals(ids[2], player.s.currentTrack?.id)
     }
 
@@ -148,7 +148,7 @@ class PlaybackStateTest {
 
         val player = makePlayer(store = store, library = lib)
 
-        assertNull(player.s.shuffledIndices)
+        assertNull(player.s.playOrder)
         assertEquals(3, player.s.queue.size)
     }
 
@@ -220,7 +220,10 @@ class PlaybackStateTest {
         player.toggleShuffle()
         store.flush()
 
-        assertEquals((0 until 5).toList(), store.load()?.shuffledIndices?.sorted())
+        val saved = store.load()
+        assertEquals(true, saved?.isShuffled)
+        // A shuffle can land on queue order, which is saved as no play order at all.
+        assertEquals((0 until 5).toList(), (saved?.playOrder ?: (0 until 5).toList()).sorted())
     }
 
     // Resume

@@ -61,7 +61,8 @@ class PlayerService(
     class QueueUndo internal constructor(
         internal val queue: List<QueueItem>,
         internal val currentIndex: Int,
-        internal val shuffledIndices: List<Int>?,
+        internal val playOrder: List<Int>?,
+        internal val isShuffled: Boolean,
         internal val isUserModified: Boolean,
         internal val position: Double,
         internal val wasPlaying: Boolean,
@@ -73,7 +74,13 @@ class PlayerService(
     data class State(
         val queue: List<QueueItem> = emptyList(),
         val currentIndex: Int = 0,
-        val shuffledIndices: List<Int>? = null,
+        /**
+         * Queue indices in the order they play; null when that is simply queue order. Not
+         * the same as being shuffled: turning shuffle off keeps what already played where
+         * it is, so the order can stay rearranged with shuffle off.
+         */
+        val playOrder: List<Int>? = null,
+        val isShuffled: Boolean = false,
         val repeatMode: RepeatMode = RepeatMode.Off,
         val isPlaying: Boolean = false,
         val isBuffering: Boolean = false,
@@ -82,10 +89,8 @@ class PlayerService(
         val playbackError: PlaybackError? = null,
         val isQueueUserModified: Boolean = false,
     ) {
-        val isShuffled: Boolean get() = shuffledIndices != null
-
         val effectiveIndex: Int
-            get() = shuffledIndices?.let { if (currentIndex in it.indices) it[currentIndex] else 0 } ?: currentIndex
+            get() = playOrder?.let { if (currentIndex in it.indices) it[currentIndex] else 0 } ?: currentIndex
 
         /**
          * The item [effectiveIndex] points at, if the queue still reaches that far. An index
@@ -94,7 +99,7 @@ class PlayerService(
         val currentItem: QueueItem? get() = queue.getOrNull(effectiveIndex)
 
         private fun entryAt(position: Int): Entry? {
-            val effective = shuffledIndices?.let { if (position < it.size) it[position] else position } ?: position
+            val effective = playOrder?.let { if (position < it.size) it[position] else position } ?: position
             return queue.getOrNull(effective)?.let { Entry(effective, it) }
         }
 
@@ -150,7 +155,8 @@ class PlayerService(
      */
     private var queueIsSingleAlbum = false
     private var currentIndex = 0
-    private var shuffledIndices: List<Int>? = null
+    private var playOrder: List<Int>? = null
+    private var isShuffled = false
     private var repeatMode = settings.repeatMode.value
     private var isPlaying = false
     private var isBuffering = false
@@ -210,7 +216,7 @@ class PlayerService(
      * and then loads the track (skip, back, restore) reads this before anything is published.
      */
     val effectiveIndex: Int
-        get() = shuffledIndices?.let { it.getOrNull(currentIndex) ?: 0 } ?: currentIndex
+        get() = playOrder?.let { it.getOrNull(currentIndex) ?: 0 } ?: currentIndex
 
     /** Whether [back] does anything: restart a track that's under way, or step to an earlier one. */
     val canGoBack: Boolean
@@ -218,7 +224,7 @@ class PlayerService(
 
     private fun publish() {
         _state.value = State(
-            queue, currentIndex, shuffledIndices, repeatMode, isPlaying, isBuffering,
+            queue, currentIndex, playOrder, isShuffled, repeatMode, isPlaying, isBuffering,
             currentTrack, duration, playbackError, isQueueUserModified,
         )
     }
@@ -262,7 +268,7 @@ class PlayerService(
     private fun snapshot(restoresPlayback: Boolean): QueueUndo {
         // The ticker only samples twice a second, and not at all while loading.
         val position = if (isPlaying && hasLoadedSource && !isBuffering) engine.position else _progress.value
-        return QueueUndo(queue, currentIndex, shuffledIndices, isQueueUserModified, position, isPlaying, restoresPlayback)
+        return QueueUndo(queue, currentIndex, playOrder, isShuffled, isQueueUserModified, position, isPlaying, restoresPlayback)
     }
 
     private fun offerUndo(kind: QueueConfirmationKind, count: Int, undo: QueueUndo) {
@@ -277,9 +283,10 @@ class PlayerService(
     private fun restoreQueue(edit: QueueUndo) {
         val playing = queue.getOrNull(effectiveIndex)?.id
         queue = edit.queue
-        shuffledIndices = edit.shuffledIndices
+        playOrder = edit.playOrder
+        isShuffled = edit.isShuffled
         isQueueUserModified = edit.isUserModified
-        val order = edit.shuffledIndices ?: edit.queue.indices.toList()
+        val order = edit.playOrder ?: edit.queue.indices.toList()
         currentIndex = order.indexOfFirst { edit.queue.getOrNull(it)?.id == playing }.takeIf { it >= 0 } ?: edit.currentIndex
         invalidateTransition()
         savePlaybackState()
@@ -288,7 +295,8 @@ class PlayerService(
     /** Back to the replaced queue, at the same point in the same track, playing only if it was. */
     private fun restorePlayback(edit: QueueUndo) {
         queue = edit.queue
-        shuffledIndices = edit.shuffledIndices
+        playOrder = edit.playOrder
+        isShuffled = edit.isShuffled
         currentIndex = edit.currentIndex
         isQueueUserModified = edit.isUserModified
         val track = queue.getOrNull(effectiveIndex)?.track ?: return publish()
@@ -318,7 +326,8 @@ class PlayerService(
     fun playNowQueue(items: List<QueueItem>, startingAt: Int = 0) {
         _undoable.value = null
         queue = items
-        shuffledIndices = null
+        playOrder = null
+        isShuffled = false
         currentIndex = startingAt
         isQueueUserModified = false
         savePlaybackState()
@@ -331,7 +340,8 @@ class PlayerService(
         if (items.isEmpty()) return
         _undoable.value = null
         queue = items
-        shuffledIndices = SmartShuffle.shuffledIndices(items)
+        playOrder = SmartShuffle.shuffledIndices(items)
+        isShuffled = true
         currentIndex = 0
         isQueueUserModified = false
         savePlaybackState()
@@ -344,15 +354,9 @@ class PlayerService(
         if (items.isEmpty()) return
         if (queue.isEmpty()) return playNowQueue(items)
         _undoable.value = null
-        val insertIndex = minOf(effectiveIndex + 1, queue.size)
-        queue = queue.toMutableList().apply { addAll(insertIndex, items) }
-        shuffledIndices?.let { shuffled ->
-            // Existing indices at or past the insert point move up; the new ones go right
-            // after the current position in shuffle order.
-            val shifted = shuffled.map { if (it >= insertIndex) it + items.size else it }.toMutableList()
-            shifted.addAll(currentIndex + 1, items.indices.map { insertIndex + it })
-            shuffledIndices = shifted
-        }
+        // In queue order they go before whatever is still to play, so turning shuffle off
+        // leaves them first in line, where they were put.
+        insert(items, queueIndex = upcomingQueueIndices.minOrNull() ?: queue.size, position = currentIndex + 1)
         isQueueUserModified = true
         _queueConfirmation.value = QueueConfirmation(QueueConfirmationKind.PlayNext, items.size)
         invalidateTransition()
@@ -369,20 +373,12 @@ class PlayerService(
         if (queue.isEmpty()) return playNowQueue(items)
         _undoable.value = null
         val nextBefore = upcomingTrackId
-        val slot = position.coerceIn(0, _state.value.upNext.size)
-        val shuffled = shuffledIndices
-        if (shuffled != null) {
-            // The new items go on the end of the queue and their positions are spliced into
-            // the shuffle order, since that's what decides play order.
-            val appendIndex = queue.size
-            queue = queue + items
-            shuffledIndices = shuffled.toMutableList().apply {
-                addAll(minOf(currentIndex + 1 + slot, size), items.indices.map { appendIndex + it })
-            }
-        } else {
-            val insertIndex = minOf(currentIndex + 1 + slot, queue.size)
-            queue = queue.toMutableList().apply { addAll(insertIndex, items) }
-        }
+        val upcoming = upcomingQueueIndices
+        val slot = position.coerceIn(0, upcoming.size)
+        // Unshuffled, what's to come is in queue order, so the slot on screen is a place in
+        // the queue too. Shuffled, a place in the queue means nothing yet; the end will do.
+        val queueIndex = if (isShuffled) queue.size else upcoming.getOrNull(slot) ?: upcoming.lastOrNull()?.plus(1) ?: queue.size
+        insert(items, queueIndex, position = currentIndex + 1 + slot)
         isQueueUserModified = true
         if (upcomingTrackId != nextBefore) invalidateTransition()
         savePlaybackState()
@@ -395,9 +391,7 @@ class PlayerService(
         if (queue.isEmpty()) return playNowQueue(items)
         _undoable.value = null
         val nextBefore = upcomingTrackId
-        val startIndex = queue.size
-        queue = queue + items
-        shuffledIndices = shuffledIndices?.let { it + items.indices.map { i -> startIndex + i } }
+        insert(items, queueIndex = queue.size, position = queue.size)
         isQueueUserModified = true
         _queueConfirmation.value = QueueConfirmation(QueueConfirmationKind.AddedToQueue, items.size)
         // At the end of a queue with nothing after it, this is now what plays next.
@@ -405,9 +399,9 @@ class PlayerService(
         savePlaybackState()
     }
 
+    /** Repeat one is for a track that ends by itself; asking to skip still moves on. */
     fun skip() {
         if (queue.isEmpty()) return
-        if (repeatMode == RepeatMode.One) return loadAndPlayCurrent()
         val nextIndex = currentIndex + 1
         when {
             nextIndex < queue.size -> {
@@ -440,9 +434,14 @@ class PlayerService(
         savePlaybackState()
     }
 
-    fun skipTo(queueIndex: Int) {
-        if (queueIndex !in queue.indices) return
-        currentIndex = queueIndex
+    /**
+     * [position] is a place in the play order. Back into history rewinds to it, leaving what
+     * came after to play again. Forward, the tracks in between go to history, as if skipped
+     * one by one: nothing is lost to a stray tap in up next.
+     */
+    fun skipTo(position: Int) {
+        if (position !in queue.indices) return
+        currentIndex = position
         loadAndPlayCurrent()
     }
 
@@ -496,7 +495,8 @@ class PlayerService(
         engine.stop()
         hasLoadedSource = false
         queue = emptyList()
-        shuffledIndices = null
+        playOrder = null
+        isShuffled = false
         currentIndex = 0
         setCurrentTrack(null)
         isPlaying = false
@@ -519,12 +519,7 @@ class PlayerService(
         val keep = currentIndex + 1
         if (queue.size <= keep) return
         val before = snapshot(restoresPlayback = false)
-        val shuffled = shuffledIndices
-        if (shuffled != null) {
-            rebuildFromShuffled(shuffled.take(keep))
-        } else {
-            queue = queue.take(keep)
-        }
+        keepOnly(order.take(keep))
         isQueueUserModified = true
         offerUndo(QueueConfirmationKind.ClearedUpNext, before.queue.size - queue.size, before)
         invalidateTransition()
@@ -538,43 +533,25 @@ class PlayerService(
     fun clearHistory() {
         if (currentIndex <= 0) return
         val before = snapshot(restoresPlayback = false)
-        val shuffled = shuffledIndices
-        if (shuffled != null) {
-            rebuildFromShuffled(shuffled.drop(currentIndex))
-        } else {
-            queue = queue.drop(currentIndex)
-        }
+        keepOnly(order.drop(currentIndex))
         currentIndex = 0
         isQueueUserModified = true
         offerUndo(QueueConfirmationKind.ClearedHistory, before.queue.size - queue.size, before)
         savePlaybackState()
     }
 
-    /** Keeps just the given real indices, in queue order, and renumbers the shuffle map onto them. */
-    private fun rebuildFromShuffled(keptRealIndices: List<Int>) {
-        val sortedKept = keptRealIndices.sorted()
-        val oldToNew = sortedKept.withIndex().associate { (new, old) -> old to new }
-        queue = sortedKept.map { queue[it] }
-        shuffledIndices = keptRealIndices.map { oldToNew.getValue(it) }
+    /** Keeps just the given queue indices, in the order given as the new play order. */
+    private fun keepOnly(kept: List<Int>) {
+        removeQueueIndices(queue.indices.toSet() - kept.toSet())
     }
 
     /** [offsets] are positions within up-next, as [State.upNext] lists them. */
     fun removeFromQueue(offsets: Set<Int>) {
-        val upNextStart = currentIndex + 1
-        val positions = offsets.map { upNextStart + it }
-        val shuffled = shuffledIndices
-        val realIndices = if (shuffled != null) positions.mapNotNull { shuffled.getOrNull(it) } else positions
-        if (realIndices.none { it in queue.indices }) return
+        val upcoming = upcomingQueueIndices
+        val removed = offsets.mapNotNull { upcoming.getOrNull(it) }.toSet()
+        if (removed.isEmpty()) return
         val before = snapshot(restoresPlayback = false)
-        val mutableQueue = queue.toMutableList()
-        var mutableShuffled = shuffled
-        for (idx in realIndices.sortedDescending()) {
-            if (idx >= mutableQueue.size) continue
-            mutableQueue.removeAt(idx)
-            mutableShuffled = mutableShuffled?.mapNotNull { if (it == idx) null else if (it > idx) it - 1 else it }
-        }
-        queue = mutableQueue
-        shuffledIndices = mutableShuffled
+        removeQueueIndices(removed)
         isQueueUserModified = true
         offerUndo(QueueConfirmationKind.Removed, before.queue.size - queue.size, before)
         invalidateTransition()
@@ -585,13 +562,16 @@ class PlayerService(
     fun moveQueueItems(source: Set<Int>, destination: Int) {
         _undoable.value = null
         val nextBefore = upcomingTrackId
-        val upNextStart = currentIndex + 1
-        val shuffled = shuffledIndices
-        if (shuffled != null) {
-            val upNext = shuffled.drop(upNextStart).moved(source, destination)
-            shuffledIndices = shuffled.take(upNextStart) + upNext
+        val upcoming = upcomingQueueIndices
+        val moved = upcoming.moved(source, destination)
+        if (isShuffled) {
+            playOrder = (order.take(currentIndex + 1) + moved).orNullIfQueueOrder()
         } else {
-            queue = queue.take(upNextStart) + queue.drop(upNextStart).moved(source, destination)
+            // The order on screen is the queue order, so the queue itself is rearranged: the
+            // moved items take over the slots what's to come already holds, which stay in order.
+            queue = queue.toMutableList().also { rearranged ->
+                moved.forEachIndexed { i, from -> rearranged[upcoming[i]] = queue[from] }
+            }
         }
         isQueueUserModified = true
         if (upcomingTrackId != nextBefore) invalidateTransition()
@@ -603,24 +583,49 @@ class PlayerService(
         get() {
             val next = currentIndex + 1
             if (next >= queue.size) return null
-            val effective = shuffledIndices?.let { if (next < it.size) it[next] else next } ?: next
+            val effective = playOrder?.let { if (next < it.size) it[next] else next } ?: next
             return queue.getOrNull(effective)?.track?.id
         }
 
+    /** Queue indices in the order they play. */
+    private val order: List<Int> get() = playOrder ?: queue.indices.toList()
+
+    /** Queue indices still to play, in the order they will. */
+    private val upcomingQueueIndices: List<Int> get() = order.drop(currentIndex + 1)
+
+    private fun List<Int>.orNullIfQueueOrder(): List<Int>? = takeUnless { withIndex().all { (i, v) -> i == v } }
+
+    /** Puts [items], in their own order, at [queueIndex] in the queue and at [position] in the play order. */
+    private fun insert(items: List<QueueItem>, queueIndex: Int, position: Int) {
+        val shifted = order.map { if (it >= queueIndex) it + items.size else it }.toMutableList()
+        shifted.addAll(position.coerceIn(0, shifted.size), items.indices.map { queueIndex + it })
+        queue = queue.toMutableList().apply { addAll(queueIndex, items) }
+        playOrder = shifted.orNullIfQueueOrder()
+    }
+
+    /** Takes [indices] out of the queue and the play order, renumbering what's left. */
+    private fun removeQueueIndices(indices: Set<Int>) {
+        if (indices.isEmpty()) return
+        val removed = indices.sorted()
+        val kept = order.filter { it !in indices }.map { index -> index - removed.count { it < index } }
+        queue = queue.filterIndexed { i, _ -> i !in indices }
+        playOrder = kept.orNullIfQueueOrder()
+    }
+
+    /**
+     * Only what's still to play changes: shuffle on shuffles it, shuffle off puts it back in
+     * queue order. What played stays where it is, so nothing heard comes round again and
+     * history doesn't rewrite itself.
+     */
     fun toggleShuffle() {
         _undoable.value = null
-        val realIndex = effectiveIndex
-        if (shuffledIndices != null) {
-            shuffledIndices = null
-            currentIndex = realIndex
-        } else {
-            val indices = SmartShuffle.shuffledIndices(queue).toMutableList()
-            val pos = indices.indexOf(realIndex)
-            if (pos > 0) indices[0] = indices[pos].also { indices[pos] = indices[0] }
-            shuffledIndices = indices
-            currentIndex = 0
-        }
-        settings.isShuffled.value = shuffledIndices != null
+        isShuffled = !isShuffled
+        val upcoming = upcomingQueueIndices
+        val reordered =
+            if (isShuffled) SmartShuffle.shuffledIndices(upcoming.map { queue[it] }).map { upcoming[it] }
+            else upcoming.sorted()
+        playOrder = (order.take(currentIndex + 1) + reordered).orNullIfQueueOrder()
+        settings.isShuffled.value = isShuffled
         invalidateTransition()
         savePlaybackState()
     }
@@ -770,7 +775,7 @@ class PlayerService(
             repeatMode == RepeatMode.All -> 0
             else -> return null
         }
-        val effective = shuffledIndices?.let { it.getOrNull(resolved) ?: return null } ?: resolved
+        val effective = playOrder?.let { it.getOrNull(resolved) ?: return null } ?: resolved
         return queue.getOrNull(effective)?.let { NextTrack(resolved, effective, it) }
     }
 
@@ -833,7 +838,7 @@ class PlayerService(
 
         override fun onError(message: PlaybackError) = failPlayback(message)
 
-        override fun onEnded() = skip()
+        override fun onEnded() = if (repeatMode == RepeatMode.One) loadAndPlayCurrent() else skip()
 
         override fun onAdvancedGapless() = advanceToLinedUpTrack()
 
@@ -911,7 +916,7 @@ class PlayerService(
     fun savePlaybackState() {
         publish()
         if (queue.isEmpty()) return
-        stateStore.save(PlaybackState(queue.map { it.track.id }, currentIndex, shuffledIndices, isQueueUserModified))
+        stateStore.save(PlaybackState(queue.map { it.track.id }, currentIndex, playOrder, isQueueUserModified, isShuffled))
         savePlaybackPosition()
     }
 
@@ -934,14 +939,17 @@ class PlayerService(
         if (tracks.size != saved.trackIds.size || queue.isNotEmpty()) return
 
         queue = tracks.map { QueueItem(it, artworkUrl = it.album?.artworkUrl) }
-        shuffledIndices = saved.shuffledIndices?.takeIf { it.size == queue.size }
+        playOrder = saved.playOrder?.takeIf { it.size == queue.size }
+        // Saved before shuffle and play order were told apart, a play order meant shuffled.
+        isShuffled = saved.isShuffled ?: (playOrder != null)
         currentIndex = saved.currentIndex.coerceIn(0, queue.size - 1)
         // A hand-built queue keeps its protection across a restart.
         isQueueUserModified = saved.isUserModified
 
         val track = queue.getOrNull(effectiveIndex)?.track ?: run {
             queue = emptyList()
-            shuffledIndices = null
+            playOrder = null
+            isShuffled = false
             currentIndex = 0
             publish()
             return

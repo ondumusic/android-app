@@ -60,17 +60,17 @@ class PlayerQueueTest {
 
         assertEquals(3, player.s.queue.size)
         assertEquals(1, player.s.currentIndex)
-        assertNull(player.s.shuffledIndices)
+        assertNull(player.s.playOrder)
     }
 
     @Test
     fun playNowClearsShuffle() = test {
         val player = makePlayer()
         player.playShuffledQueue(items("A", "B"))
-        assertNotNull(player.s.shuffledIndices)
+        assertNotNull(player.s.playOrder)
 
         player.playNowQueue(items("C"), startingAt = 0)
-        assertNull(player.s.shuffledIndices)
+        assertNull(player.s.playOrder)
     }
 
     // Play shuffled
@@ -81,7 +81,7 @@ class PlayerQueueTest {
         player.playShuffledQueue((0 until 10).map { makeQueueItem(name = "T$it") })
 
         assertEquals(10, player.s.queue.size)
-        assertEquals(10, player.s.shuffledIndices?.size)
+        assertEquals(10, player.s.playOrder?.size)
         assertEquals(0, player.s.currentIndex)
     }
 
@@ -90,7 +90,7 @@ class PlayerQueueTest {
         val player = makePlayer()
         player.playShuffledQueue((0 until 10).map { makeQueueItem(name = "T$it") })
 
-        assertEquals((0 until 10).toSet(), player.s.shuffledIndices!!.toSet())
+        assertEquals((0 until 10).toSet(), player.s.playOrder!!.toSet())
     }
 
     @Test
@@ -101,9 +101,10 @@ class PlayerQueueTest {
         player.toggleShuffle()
 
         assertTrue(player.s.isShuffled)
-        // The current track leads the shuffled order.
-        assertEquals(0, player.s.currentIndex)
-        assertEquals(2, player.s.shuffledIndices?.get(0))
+        // What played and what's playing stay put; only what's to come is shuffled.
+        assertEquals(2, player.s.currentIndex)
+        assertEquals("T2", player.s.currentItem?.track?.name)
+        assertEquals(listOf("T1", "T0"), player.s.history.map { it.item.track.name })
     }
 
     @Test
@@ -116,7 +117,7 @@ class PlayerQueueTest {
         player.toggleShuffle()
 
         assertFalse(player.s.isShuffled)
-        assertNull(player.s.shuffledIndices)
+        assertNull(player.s.playOrder)
         assertEquals(realIndex, player.s.currentIndex)
     }
 
@@ -126,7 +127,7 @@ class PlayerQueueTest {
         player.playShuffledQueue(emptyList())
 
         assertTrue(player.s.queue.isEmpty())
-        assertNull(player.s.shuffledIndices)
+        assertNull(player.s.playOrder)
     }
 
     // Play next / add to end
@@ -185,15 +186,13 @@ class PlayerQueueTest {
     fun playNextWhileShuffledInsertsAfterCurrentInShuffleOrder() = test {
         val player = makePlayer()
         player.playShuffledQueue(items("A", "B", "C", "D"))
-        val currentReal = player.s.shuffledIndices!![0]
+        val current = player.s.currentItem
 
         player.playNextQueue(items("X"))
 
         assertEquals(5, player.s.queue.size)
-        val shuffled = player.s.shuffledIndices!!
-        assertEquals(5, shuffled.size)
-        assertEquals(currentReal, shuffled[0])
-        assertEquals("X", player.s.queue[shuffled[1]].track.name)
+        assertEquals(current, player.s.currentItem)
+        assertEquals("X", player.s.upNext.first().item.track.name)
     }
 
     @Test
@@ -204,9 +203,7 @@ class PlayerQueueTest {
         player.playNextQueue(items("X", "Y"))
 
         assertEquals(5, player.s.queue.size)
-        val shuffled = player.s.shuffledIndices!!
-        assertEquals("X", player.s.queue[shuffled[1]].track.name)
-        assertEquals("Y", player.s.queue[shuffled[2]].track.name)
+        assertEquals(listOf("X", "Y"), player.s.upNext.take(2).map { it.item.track.name })
     }
 
     // Skip / back
@@ -261,7 +258,7 @@ class PlayerQueueTest {
 
         player.skipTo(2)
 
-        assertEquals(2, player.s.currentIndex)
+        assertEquals("C", player.s.currentItem?.track?.name)
     }
 
     @Test
@@ -326,7 +323,7 @@ class PlayerQueueTest {
         player.clearUpNext()
 
         assertEquals(listOf(currentTrackName), player.names)
-        assertEquals(listOf(0), player.s.shuffledIndices)
+        assertEquals(currentTrackName, player.s.currentItem?.track?.name)
     }
 
     @Test
@@ -344,12 +341,14 @@ class PlayerQueueTest {
     fun removeFromQueueWhileShuffled() = test {
         val player = makePlayer()
         player.playShuffledQueue(items("A", "B", "C", "D"))
-        val countBefore = player.s.queue.size
+        val current = player.s.currentItem
+        val expected = player.s.upNext.drop(1).map { it.item }
 
         player.removeFromQueue(setOf(0))
 
-        assertEquals(countBefore - 1, player.s.queue.size)
-        assertEquals(countBefore - 1, player.s.shuffledIndices?.size)
+        assertEquals(3, player.s.queue.size)
+        assertEquals(current, player.s.currentItem)
+        assertEquals(expected, player.s.upNext.map { it.item })
     }
 
     @Test
@@ -367,13 +366,13 @@ class PlayerQueueTest {
     fun moveQueueItemsWhileShuffled() = test {
         val player = makePlayer()
         player.playShuffledQueue(items("A", "B", "C", "D"))
-        val currentReal = player.s.shuffledIndices!![0]
+        val current = player.s.currentItem
+        val upNext = player.s.upNext.map { it.item }
 
         player.moveQueueItems(setOf(2), 0)
 
-        val shuffledAfter = player.s.shuffledIndices!!
-        assertEquals(currentReal, shuffledAfter[0])
-        assertEquals(4, shuffledAfter.size)
+        assertEquals(current, player.s.currentItem)
+        assertEquals(listOf(upNext[2], upNext[0], upNext[1]), player.s.upNext.map { it.item })
     }
 
     // canGoBack / canSkip edge cases
@@ -457,14 +456,15 @@ class PlayerQueueTest {
     }
 
     @Test
-    fun skipWithRepeatOneReplays() = test {
+    fun skipWithRepeatOneMovesOn() = test {
         val player = makePlayer()
         player.playNowQueue(items("A", "B"), startingAt = 0)
         player.setRepeatMode(RepeatMode.One)
 
         player.skip()
 
-        assertEquals(0, player.s.currentIndex)
+        assertEquals(1, player.s.currentIndex)
+        assertEquals(RepeatMode.One, player.s.repeatMode)
     }
 
     // Playback failure
@@ -619,7 +619,8 @@ class PlayerQueueTest {
         val player = shuffledPlayerMidway()
         player.clearHistory()
         assertEquals(0, player.s.currentIndex)
-        assertEquals(2, player.s.shuffledIndices?.size)
+        assertEquals("A", player.s.currentItem?.track?.name)
+        assertEquals(listOf("C"), player.s.upNext.map { it.item.track.name })
     }
 
     @Test
@@ -655,7 +656,7 @@ class PlayerQueueTest {
         val player = makePlayer()
         player.playShuffledQueue(items("A", "B"))
         player.stopAndClear()
-        assertNull(player.s.shuffledIndices)
+        assertNull(player.s.playOrder)
     }
 
     // Artwork. Whether the player tints from it is the UI's call on Android, combining
@@ -683,7 +684,7 @@ class PlayerQueueTest {
         val album = UUID.randomUUID()
         val state = PlayerService.State(
             queue = listOf(makeQueueItem("A", album, number = 1), makeQueueItem("B", album, number = 2)),
-            shuffledIndices = listOf(5, 1),
+            playOrder = listOf(5, 1),
             currentIndex = 0,
         )
 
@@ -693,7 +694,7 @@ class PlayerQueueTest {
 
     @Test
     fun nowPlayingSurvivesAShuffleOrderWiderThanTheQueue() {
-        val state = PlayerService.State(queue = listOf(makeQueueItem("A")), shuffledIndices = listOf(7), currentIndex = 0)
+        val state = PlayerService.State(queue = listOf(makeQueueItem("A")), playOrder = listOf(7), currentIndex = 0)
 
         assertNull(state.currentItem?.artworkUrl)
     }

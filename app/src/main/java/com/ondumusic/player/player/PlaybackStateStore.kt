@@ -9,6 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.io.File
 import java.util.UUID
@@ -22,8 +23,10 @@ import java.util.UUID
 data class PlaybackState(
     val trackIds: List<SerialUuid>,
     val currentIndex: Int,
-    val shuffledIndices: List<Int>? = null,
+    @SerialName("shuffledIndices") val playOrder: List<Int>? = null,
     val isUserModified: Boolean = false,
+    /** Null in a file written before shuffle and play order were told apart. */
+    val isShuffled: Boolean? = null,
 )
 
 /**

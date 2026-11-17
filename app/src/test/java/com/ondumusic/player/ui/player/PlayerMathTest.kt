@@ -61,7 +61,7 @@ class PlayerMathTest {
         val queue = List(6) { QueueItem(makeTrack("t$it")) }
         for (shuffled in listOf(null, listOf(3, 0, 5, 1, 4, 2))) {
             val current = 2
-            val state = PlayerService.State(queue = queue, currentIndex = current, shuffledIndices = shuffled, repeatMode = RepeatMode.Off)
+            val state = PlayerService.State(queue = queue, currentIndex = current, playOrder = shuffled, repeatMode = RepeatMode.Off)
             state.upNext.forEachIndexed { offset, entry ->
                 val moved = state.copy(currentIndex = QueuePositions.upNext(current, offset))
                 assertEquals(entry.item.id, moved.currentItem?.id)
