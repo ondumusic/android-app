@@ -38,6 +38,8 @@ class MainActivity : ComponentActivity() {
      */
     override fun onStart() {
         super.onStart()
+        // Whatever was meant to end it couldn't run while the app was in the background.
+        (application as OnduApplication).container.settings.endPrivateSessionIfLapsed()
         controller = MediaController.Builder(this, SessionToken(this, ComponentName(this, PlaybackService::class.java))).buildAsync()
     }
 

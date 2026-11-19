@@ -118,6 +118,15 @@ class SettingsStore(
     fun togglePrivateSession() = if (isPrivateSession) endPrivateSession() else startPrivateSession()
 
     /**
+     * Clears a session whose time is up. [isPrivateSession] already reads false then, but
+     * nothing collected changes when the clock passes the deadline, so every screen
+     * showing the session would keep showing it.
+     */
+    fun endPrivateSessionIfLapsed() {
+        if (privateSessionEndsAt.value != 0L && !isPrivateSession) endPrivateSession()
+    }
+
+    /**
      * Fed by playback progress. Writes only once the deadline has drifted a minute: the player
      * ticks every second, and each write here is a preferences write and a flow emission.
      */

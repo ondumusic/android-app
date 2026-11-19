@@ -54,6 +54,7 @@ import com.ondumusic.player.ui.downloads.icon
 import com.ondumusic.player.ui.downloads.isOverridable
 import com.ondumusic.player.ui.downloads.message
 import com.ondumusic.player.ui.downloads.noticeReason
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -79,6 +80,13 @@ fun WithAppBanners(content: @Composable () -> Unit) {
     val downloadNotice = downloads.noticeReason.takeIf { noticeHost.screensShowingNotice == 0 }
     val privateEndsAt by container.settings.privateSessionEndsAt.flow.collectAsStateWithLifecycle()
     val privateSession = remember(privateEndsAt) { container.settings.isPrivateSession }
+
+    // Ends the session on time while the app is open, for every screen showing it.
+    LaunchedEffect(privateEndsAt) {
+        if (privateEndsAt == 0L) return@LaunchedEffect
+        delay(privateEndsAt - System.currentTimeMillis())
+        container.settings.endPrivateSessionIfLapsed()
+    }
 
     // Asked for straight away, as iOS does; the strip stays for when it's put off.
     LaunchedEffect(expired) { showReAuth = expired }

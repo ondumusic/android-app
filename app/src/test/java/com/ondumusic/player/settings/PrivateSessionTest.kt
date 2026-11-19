@@ -106,4 +106,29 @@ class PrivateSessionTest {
         now += PRIVATE_SESSION_IDLE_WINDOW_MS + 1
         assertFalse(store().isPrivateSession)
     }
+
+    /** Screens only update on a collected change, and the clock passing the deadline isn't one. */
+    @Test
+    fun endingIfLapsedClearsALapsedSession() {
+        val s = store()
+        s.startPrivateSession()
+        now += PRIVATE_SESSION_IDLE_WINDOW_MS + 1
+
+        s.endPrivateSessionIfLapsed()
+
+        assertEquals(0L, s.privateSessionEndsAt.value)
+    }
+
+    @Test
+    fun endingIfLapsedLeavesARunningSessionAlone() {
+        val s = store()
+        s.startPrivateSession()
+        val endsAt = s.privateSessionEndsAt.value
+        now += PRIVATE_SESSION_IDLE_WINDOW_MS / 2
+
+        s.endPrivateSessionIfLapsed()
+
+        assertEquals(endsAt, s.privateSessionEndsAt.value)
+        assertTrue(s.isPrivateSession)
+    }
 }
